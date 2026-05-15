@@ -1,43 +1,12 @@
 import Link from "next/link";
 
-const products = [
-  {
-    name: "Auriculares Pro",
-    price: "$89.00",
-    category: "Audio",
-    stock: "Disponible",
-  },
-  {
-    name: "Teclado Mecánico",
-    price: "$124.00",
-    category: "Accesorios",
-    stock: "Disponible",
-  },
-  {
-    name: "Monitor 27 pulgadas",
-    price: "$329.00",
-    category: "Pantallas",
-    stock: "Stock bajo",
-  },
-  {
-    name: "Mouse Inalámbrico",
-    price: "$42.00",
-    category: "Accesorios",
-    stock: "Disponible",
-  },
-  {
-    name: "Laptop Empresarial",
-    price: "$1,150.00",
-    category: "Computadoras",
-    stock: "Disponible",
-  },
-  {
-    name: "Impresora Térmica",
-    price: "$210.00",
-    category: "Punto de venta",
-    stock: "Reservado",
-  },
-];
+import { products } from "@/lib/products";
+
+const formatPrice = (price: number) =>
+  `Q${price.toLocaleString("es-GT", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 
 export default function CatalogoPage() {
   return (
@@ -71,8 +40,9 @@ export default function CatalogoPage() {
               Catálogo de productos
             </h1>
             <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-600">
-              Explora productos de ejemplo con precios, categorías y estados de
-              inventario listos para una experiencia comercial clara.
+              Explora productos de ejemplo con precios en quetzales, categorías
+              y estados de inventario listos para una experiencia comercial
+              clara.
             </p>
           </div>
 
@@ -103,27 +73,63 @@ export default function CatalogoPage() {
         <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {products.map((product) => (
             <article
-              key={product.name}
-              className="flex min-h-64 flex-col justify-between rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-emerald-200 hover:shadow-xl hover:shadow-emerald-950/5"
+              key={product.id}
+              className="flex min-h-[28rem] flex-col justify-between rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-emerald-200 hover:shadow-xl hover:shadow-emerald-950/5"
             >
               <div>
-                <div className="flex items-center justify-between gap-4">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
                     {product.category}
                   </span>
-                  <span className="text-xs font-semibold text-slate-500">
-                    {product.stock}
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+                    {product.status}
                   </span>
+                  {product.isNew ? (
+                    <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-bold text-cyan-700">
+                      Nuevo
+                    </span>
+                  ) : null}
+                  {product.isFeatured ? (
+                    <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
+                      Destacado
+                    </span>
+                  ) : null}
                 </div>
-                <div className="mt-8 flex h-24 items-center justify-center rounded-2xl bg-slate-50">
-                  <span className="text-3xl font-black text-emerald-700">
-                    {product.name.slice(0, 2).toUpperCase()}
-                  </span>
+
+                <div className="mt-6 flex h-28 items-center justify-center rounded-2xl border border-slate-100 bg-slate-50">
+                  <div className="text-center">
+                    <p className="text-xs font-bold uppercase tracking-[0.24em] text-slate-400">
+                      Código visual
+                    </p>
+                    <p className="mt-2 text-3xl font-black text-emerald-700">
+                      {product.imageCode}
+                    </p>
+                  </div>
                 </div>
+
                 <h2 className="mt-6 text-xl font-bold">{product.name}</h2>
-                <p className="mt-2 text-3xl font-black tracking-tight">
-                  {product.price}
+                <p className="mt-3 min-h-14 text-sm leading-7 text-slate-600">
+                  {product.description}
                 </p>
+
+                <div className="mt-6 flex items-end justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
+                      Precio
+                    </p>
+                    <p className="mt-1 text-3xl font-black tracking-tight">
+                      {formatPrice(product.price)}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 px-4 py-3 text-right">
+                    <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
+                      Stock
+                    </p>
+                    <p className="mt-1 text-lg font-black text-slate-900">
+                      {product.stock}
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <button className="mt-6 h-11 rounded-full bg-emerald-600 px-5 text-sm font-bold text-white transition hover:bg-emerald-700">
