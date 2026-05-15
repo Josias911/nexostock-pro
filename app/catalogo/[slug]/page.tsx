@@ -1,6 +1,12 @@
-import Link from "next/link";
+"use client";
 
-import { products } from "@/lib/products";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+
+import { products as baseProducts, type Product } from "@/lib/products";
+
+const ADMIN_PRODUCTS_KEY = "nexostock_admin_products";
 
 const formatPrice = (price: number) =>
   `Q${price.toLocaleString("es-GT", {
@@ -8,17 +14,63 @@ const formatPrice = (price: number) =>
     maximumFractionDigits: 2,
   })}`;
 
-type ProductDetailPageProps = {
-  params: Promise<{
-    slug: string;
-  }>;
-};
+export default function ProductDetailPage() {
+  const params = useParams<{ slug: string }>();
+  const [storedProducts, setStoredProducts] = useState<Product[]>([]);
+  const [hasLoadedProducts, setHasLoadedProducts] = useState(false);
 
-export default async function ProductDetailPage({
-  params,
-}: ProductDetailPageProps) {
-  const { slug } = await params;
-  const product = products.find((item) => item.slug === slug);
+  useEffect(() => {
+    queueMicrotask(() => {
+      const savedProducts = window.localStorage.getItem(ADMIN_PRODUCTS_KEY);
+
+      if (savedProducts) {
+        try {
+          setStoredProducts(JSON.parse(savedProducts) as Product[]);
+        } catch {
+          window.localStorage.removeItem(ADMIN_PRODUCTS_KEY);
+        }
+      }
+
+      setHasLoadedProducts(true);
+    });
+  }, []);
+
+  const allProducts = useMemo(
+    () => [...baseProducts, ...storedProducts],
+    [storedProducts],
+  );
+  const product = allProducts.find((item) => item.slug === params.slug);
+
+  if (!hasLoadedProducts) {
+    return (
+      <main className="min-h-screen bg-[#f7faf8] text-slate-950">
+        <header className="border-b border-emerald-950/10 bg-white">
+          <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 lg:px-8">
+            <Link href="/" className="flex items-center gap-3">
+              <span className="flex size-10 items-center justify-center rounded-xl bg-emerald-600 text-lg font-black text-white shadow-lg shadow-emerald-700/20">
+                N
+              </span>
+              <span className="text-lg font-bold tracking-tight">
+                NexoStock Pro
+              </span>
+            </Link>
+            <Link
+              href="/catalogo"
+              className="rounded-full border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-900 transition hover:border-emerald-300 hover:text-emerald-700"
+            >
+              Volver al catálogo
+            </Link>
+          </nav>
+        </header>
+
+        <section className="mx-auto flex max-w-3xl flex-col items-center px-6 py-24 text-center lg:px-8">
+          <p className="text-lg font-bold text-slate-500">
+            Cargando producto...
+          </p>
+        </section>
+      </main>
+    );
+  }
 
   if (!product) {
     return (
@@ -52,6 +104,12 @@ export default async function ProductDetailPage({
           <p className="mt-4 text-lg leading-8 text-slate-600">
             El producto solicitado no existe en el catálogo actual.
           </p>
+          <Link
+            href="/catalogo"
+            className="mt-8 inline-flex h-12 items-center justify-center rounded-full bg-emerald-600 px-7 text-sm font-bold text-white transition hover:bg-emerald-700"
+          >
+            Volver al catálogo
+          </Link>
         </section>
       </main>
     );
@@ -139,10 +197,16 @@ export default async function ProductDetailPage({
           </div>
 
           <div className="mt-8 flex flex-col gap-4 sm:flex-row">
-            <button className="inline-flex h-12 items-center justify-center rounded-full bg-emerald-600 px-7 text-sm font-bold text-white shadow-xl shadow-emerald-700/20 transition hover:bg-emerald-700">
+            <button
+              className="inline-flex h-12 items-center justify-center rounded-full bg-emerald-600 px-7 text-sm font-bold text-white shadow-xl shadow-emerald-700/20 transition hover:bg-emerald-700"
+              type="button"
+            >
               Agregar al carrito
             </button>
-            <button className="inline-flex h-12 items-center justify-center rounded-full border border-slate-300 bg-white px-7 text-sm font-bold text-slate-900 transition hover:border-emerald-300 hover:text-emerald-700">
+            <button
+              className="inline-flex h-12 items-center justify-center rounded-full border border-slate-300 bg-white px-7 text-sm font-bold text-slate-900 transition hover:border-emerald-300 hover:text-emerald-700"
+              type="button"
+            >
               Consultar por WhatsApp
             </button>
           </div>
