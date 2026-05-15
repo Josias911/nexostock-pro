@@ -132,9 +132,17 @@ export default function CatalogoPage() {
                 </div>
               </div>
 
-              <button className="mt-6 h-11 rounded-full bg-emerald-600 px-5 text-sm font-bold text-white transition hover:bg-emerald-700">
-                Agregar
-              </button>
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                <Link
+                  href={`/catalogo/${product.slug}`}
+                  className="inline-flex h-11 items-center justify-center rounded-full border border-slate-300 bg-white px-5 text-sm font-bold text-slate-900 transition hover:border-emerald-300 hover:text-emerald-700"
+                >
+                  Ver detalle
+                </Link>
+                <button className="h-11 rounded-full bg-emerald-600 px-5 text-sm font-bold text-white transition hover:bg-emerald-700">
+                  Agregar
+                </button>
+              </div>
             </article>
           ))}
         </div>
