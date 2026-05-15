@@ -1,6 +1,11 @@
-import Link from "next/link";
+"use client";
 
-import { products } from "@/lib/products";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+
+import { products as baseProducts, type Product } from "@/lib/products";
+
+const ADMIN_PRODUCTS_KEY = "nexostock_admin_products";
 
 const sidebarItems = [
   { label: "Dashboard", href: "/admin" },
@@ -18,34 +23,57 @@ const formatPrice = (price: number) =>
   })}`;
 
 export default function AdminProductsPage() {
-  const featuredProducts = products.filter((product) => product.isFeatured);
-  const newProducts = products.filter((product) => product.isNew);
-  const lowStockProducts = products.filter(
-    (product) => product.status === "Stock bajo" || product.stock <= 10,
+  const [storedProducts, setStoredProducts] = useState<Product[]>([]);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      const savedProducts = window.localStorage.getItem(ADMIN_PRODUCTS_KEY);
+
+      if (savedProducts) {
+        try {
+          setStoredProducts(JSON.parse(savedProducts) as Product[]);
+        } catch {
+          window.localStorage.removeItem(ADMIN_PRODUCTS_KEY);
+        }
+      }
+    });
+  }, []);
+
+  const allProducts = useMemo(
+    () => [...baseProducts, ...storedProducts],
+    [storedProducts],
   );
 
-  const summaryCards = [
-    {
-      label: "Total productos",
-      value: products.length,
-      detail: "Productos registrados",
-    },
-    {
-      label: "Productos destacados",
-      value: featuredProducts.length,
-      detail: "Visibles como prioridad",
-    },
-    {
-      label: "Productos nuevos",
-      value: newProducts.length,
-      detail: "Marcados para lanzamiento",
-    },
-    {
-      label: "Stock bajo",
-      value: lowStockProducts.length,
-      detail: "Requieren revisión",
-    },
-  ];
+  const summaryCards = useMemo(() => {
+    const featuredProducts = allProducts.filter((product) => product.isFeatured);
+    const newProducts = allProducts.filter((product) => product.isNew);
+    const lowStockProducts = allProducts.filter(
+      (product) => product.status === "Stock bajo" || product.stock <= 10,
+    );
+
+    return [
+      {
+        label: "Total productos",
+        value: allProducts.length,
+        detail: "Productos registrados",
+      },
+      {
+        label: "Productos destacados",
+        value: featuredProducts.length,
+        detail: "Visibles como prioridad",
+      },
+      {
+        label: "Productos nuevos",
+        value: newProducts.length,
+        detail: "Marcados para lanzamiento",
+      },
+      {
+        label: "Stock bajo",
+        value: lowStockProducts.length,
+        detail: "Requieren revisión",
+      },
+    ];
+  }, [allProducts]);
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-950">
@@ -139,7 +167,7 @@ export default function AdminProductsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {products.map((product) => (
+                  {allProducts.map((product) => (
                     <tr key={product.id} className="hover:bg-slate-50">
                       <td className="px-6 py-4 font-bold text-emerald-700">
                         {product.imageCode}

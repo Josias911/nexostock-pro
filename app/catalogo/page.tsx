@@ -12,6 +12,7 @@ const formatPrice = (price: number) =>
   })}`;
 
 const CART_STORAGE_KEY = "nexostock_cart";
+const ADMIN_PRODUCTS_KEY = "nexostock_admin_products";
 
 type CartItem = {
   product: Product;
@@ -22,8 +23,13 @@ export default function CatalogoPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [hasLoadedCart, setHasLoadedCart] = useState(false);
+  const [storedProducts, setStoredProducts] = useState<Product[]>([]);
 
   const totalItems = cartItems.reduce((total, item) => total + item.quantity, 0);
+  const catalogProducts = useMemo(
+    () => [...products, ...storedProducts],
+    [storedProducts],
+  );
   const cartTotal = useMemo(
     () =>
       cartItems.reduce(
@@ -47,6 +53,20 @@ export default function CatalogoPage() {
       }
 
       setHasLoadedCart(true);
+    });
+  }, []);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      const savedProducts = window.localStorage.getItem(ADMIN_PRODUCTS_KEY);
+
+      if (savedProducts) {
+        try {
+          setStoredProducts(JSON.parse(savedProducts) as Product[]);
+        } catch {
+          window.localStorage.removeItem(ADMIN_PRODUCTS_KEY);
+        }
+      }
     });
   }, []);
 
@@ -166,7 +186,7 @@ export default function CatalogoPage() {
         </div>
 
         <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {products.map((product) => (
+          {catalogProducts.map((product) => (
             <article
               key={product.id}
               className="flex min-h-[28rem] flex-col justify-between rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-emerald-200 hover:shadow-xl hover:shadow-emerald-950/5"

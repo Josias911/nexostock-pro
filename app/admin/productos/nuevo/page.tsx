@@ -1,4 +1,12 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { FormEvent, useState } from "react";
+
+import type { Product } from "@/lib/products";
+
+const ADMIN_PRODUCTS_KEY = "nexostock_admin_products";
 
 const sidebarItems = [
   { label: "Dashboard", href: "/admin" },
@@ -9,7 +17,99 @@ const sidebarItems = [
   { label: "Reportes", href: "#" },
 ];
 
+type ProductForm = {
+  name: string;
+  imageCode: string;
+  slug: string;
+  category: Product["category"];
+  price: string;
+  stock: string;
+  status: Product["status"];
+  description: string;
+  isNew: boolean;
+  isFeatured: boolean;
+};
+
+const initialForm: ProductForm = {
+  name: "",
+  imageCode: "",
+  slug: "",
+  category: "Audio",
+  price: "",
+  stock: "",
+  status: "Disponible",
+  description: "",
+  isNew: false,
+  isFeatured: false,
+};
+
 export default function NewProductPage() {
+  const router = useRouter();
+  const [formData, setFormData] = useState<ProductForm>(initialForm);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const updateField = <Field extends keyof ProductForm>(
+    field: Field,
+    value: ProductForm[Field],
+  ) => {
+    setFormData((currentData) => ({
+      ...currentData,
+      [field]: value,
+    }));
+    setErrorMessage("");
+  };
+
+  const saveProduct = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const hasEmptyRequiredField =
+      formData.name.trim() === "" ||
+      formData.imageCode.trim() === "" ||
+      formData.slug.trim() === "" ||
+      formData.category.trim() === "" ||
+      formData.price.trim() === "" ||
+      formData.stock.trim() === "" ||
+      formData.status.trim() === "" ||
+      formData.description.trim() === "";
+
+    if (hasEmptyRequiredField) {
+      setErrorMessage("Completa todos los campos obligatorios.");
+      return;
+    }
+
+    const storedProducts = window.localStorage.getItem(ADMIN_PRODUCTS_KEY);
+    let currentProducts: Product[] = [];
+
+    if (storedProducts) {
+      try {
+        currentProducts = JSON.parse(storedProducts) as Product[];
+      } catch {
+        currentProducts = [];
+      }
+    }
+
+    const newProduct: Product = {
+      id: `admin-${Date.now()}`,
+      name: formData.name.trim(),
+      slug: formData.slug.trim(),
+      price: Number(formData.price),
+      category: formData.category,
+      stock: Number(formData.stock),
+      status: formData.status,
+      imageCode: formData.imageCode.trim(),
+      isNew: formData.isNew,
+      isFeatured: formData.isFeatured,
+      description: formData.description.trim(),
+    };
+
+    window.localStorage.setItem(
+      ADMIN_PRODUCTS_KEY,
+      JSON.stringify([...currentProducts, newProduct]),
+    );
+
+    router.push("/admin/productos");
+  };
+
   return (
     <main className="min-h-screen bg-slate-100 text-slate-950">
       <div className="mx-auto flex min-h-screen max-w-7xl flex-col lg:flex-row">
@@ -61,7 +161,16 @@ export default function NewProductPage() {
             </Link>
           </div>
 
-          <form className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <form
+            className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+            onSubmit={saveProduct}
+          >
+            {errorMessage ? (
+              <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                {errorMessage}
+              </div>
+            ) : null}
+
             <div className="grid gap-6 lg:grid-cols-2">
               <label className="block">
                 <span className="text-sm font-bold text-slate-700">
@@ -69,8 +178,10 @@ export default function NewProductPage() {
                 </span>
                 <input
                   className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-medium outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                  onChange={(event) => updateField("name", event.target.value)}
                   placeholder="Ej. Auriculares Pro"
                   type="text"
+                  value={formData.name}
                 />
               </label>
 
@@ -80,8 +191,12 @@ export default function NewProductPage() {
                 </span>
                 <input
                   className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-medium outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                  onChange={(event) =>
+                    updateField("imageCode", event.target.value)
+                  }
                   placeholder="Ej. AUD-01"
                   type="text"
+                  value={formData.imageCode}
                 />
               </label>
 
@@ -89,8 +204,10 @@ export default function NewProductPage() {
                 <span className="text-sm font-bold text-slate-700">Slug</span>
                 <input
                   className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-medium outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                  onChange={(event) => updateField("slug", event.target.value)}
                   placeholder="ej. auriculares-pro"
                   type="text"
+                  value={formData.slug}
                 />
               </label>
 
@@ -98,7 +215,16 @@ export default function NewProductPage() {
                 <span className="text-sm font-bold text-slate-700">
                   Categoría
                 </span>
-                <select className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-medium outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100">
+                <select
+                  className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-medium outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                  onChange={(event) =>
+                    updateField(
+                      "category",
+                      event.target.value as Product["category"],
+                    )
+                  }
+                  value={formData.category}
+                >
                   <option>Audio</option>
                   <option>Accesorios</option>
                   <option>Pantallas</option>
@@ -112,8 +238,10 @@ export default function NewProductPage() {
                 <span className="text-sm font-bold text-slate-700">Precio</span>
                 <input
                   className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-medium outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                  onChange={(event) => updateField("price", event.target.value)}
                   placeholder="0.00"
                   type="number"
+                  value={formData.price}
                 />
               </label>
 
@@ -121,14 +249,22 @@ export default function NewProductPage() {
                 <span className="text-sm font-bold text-slate-700">Stock</span>
                 <input
                   className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-medium outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                  onChange={(event) => updateField("stock", event.target.value)}
                   placeholder="0"
                   type="number"
+                  value={formData.stock}
                 />
               </label>
 
               <label className="block lg:col-span-2">
                 <span className="text-sm font-bold text-slate-700">Estado</span>
-                <select className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-medium outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100">
+                <select
+                  className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-medium outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                  onChange={(event) =>
+                    updateField("status", event.target.value as Product["status"])
+                  }
+                  value={formData.status}
+                >
                   <option>Disponible</option>
                   <option>Stock bajo</option>
                   <option>Agotado</option>
@@ -141,7 +277,11 @@ export default function NewProductPage() {
                 </span>
                 <textarea
                   className="mt-2 min-h-32 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                  onChange={(event) =>
+                    updateField("description", event.target.value)
+                  }
                   placeholder="Describe las características principales del producto"
+                  value={formData.description}
                 />
               </label>
             </div>
@@ -151,14 +291,28 @@ export default function NewProductPage() {
                 <span className="text-sm font-bold text-slate-700">
                   Marcar como Nuevo
                 </span>
-                <input className="size-5 accent-emerald-600" type="checkbox" />
+                <input
+                  checked={formData.isNew}
+                  className="size-5 accent-emerald-600"
+                  onChange={(event) =>
+                    updateField("isNew", event.target.checked)
+                  }
+                  type="checkbox"
+                />
               </label>
 
               <label className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
                 <span className="text-sm font-bold text-slate-700">
                   Marcar como Destacado
                 </span>
-                <input className="size-5 accent-emerald-600" type="checkbox" />
+                <input
+                  checked={formData.isFeatured}
+                  className="size-5 accent-emerald-600"
+                  onChange={(event) =>
+                    updateField("isFeatured", event.target.checked)
+                  }
+                  type="checkbox"
+                />
               </label>
             </div>
 
@@ -171,7 +325,7 @@ export default function NewProductPage() {
               </Link>
               <button
                 className="inline-flex h-11 items-center justify-center rounded-full bg-emerald-600 px-6 text-sm font-bold text-white shadow-lg shadow-emerald-700/20 transition hover:bg-emerald-700"
-                type="button"
+                type="submit"
               >
                 Guardar producto
               </button>
