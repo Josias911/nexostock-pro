@@ -1,6 +1,9 @@
-import Link from "next/link";
+"use client";
 
-import { products } from "@/lib/products";
+import Link from "next/link";
+import { useMemo, useState } from "react";
+
+import { products, type Product } from "@/lib/products";
 
 const formatPrice = (price: number) =>
   `Q${price.toLocaleString("es-GT", {
@@ -8,7 +11,71 @@ const formatPrice = (price: number) =>
     maximumFractionDigits: 2,
   })}`;
 
+type CartItem = {
+  product: Product;
+  quantity: number;
+};
+
 export default function CatalogoPage() {
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+
+  const totalItems = cartItems.reduce((total, item) => total + item.quantity, 0);
+  const cartTotal = useMemo(
+    () =>
+      cartItems.reduce(
+        (total, item) => total + item.product.price * item.quantity,
+        0,
+      ),
+    [cartItems],
+  );
+
+  const addToCart = (product: Product) => {
+    setCartItems((currentItems) => {
+      const existingItem = currentItems.find(
+        (item) => item.product.id === product.id,
+      );
+
+      if (existingItem) {
+        return currentItems.map((item) =>
+          item.product.id === product.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item,
+        );
+      }
+
+      return [...currentItems, { product, quantity: 1 }];
+    });
+  };
+
+  const increaseQuantity = (productId: string) => {
+    setCartItems((currentItems) =>
+      currentItems.map((item) =>
+        item.product.id === productId
+          ? { ...item, quantity: item.quantity + 1 }
+          : item,
+      ),
+    );
+  };
+
+  const decreaseQuantity = (productId: string) => {
+    setCartItems((currentItems) =>
+      currentItems
+        .map((item) =>
+          item.product.id === productId
+            ? { ...item, quantity: item.quantity - 1 }
+            : item,
+        )
+        .filter((item) => item.quantity > 0),
+    );
+  };
+
+  const removeFromCart = (productId: string) => {
+    setCartItems((currentItems) =>
+      currentItems.filter((item) => item.product.id !== productId),
+    );
+  };
+
   return (
     <main className="min-h-screen bg-[#f7faf8] text-slate-950">
       <header className="border-b border-emerald-950/10 bg-white">
@@ -139,7 +206,11 @@ export default function CatalogoPage() {
                 >
                   Ver detalle
                 </Link>
-                <button className="h-11 rounded-full bg-emerald-600 px-5 text-sm font-bold text-white transition hover:bg-emerald-700">
+                <button
+                  className="h-11 rounded-full bg-emerald-600 px-5 text-sm font-bold text-white transition hover:bg-emerald-700"
+                  onClick={() => addToCart(product)}
+                  type="button"
+                >
                   Agregar
                 </button>
               </div>
@@ -147,6 +218,127 @@ export default function CatalogoPage() {
           ))}
         </div>
       </section>
+
+      <button
+        className="fixed bottom-6 right-6 z-30 inline-flex h-14 items-center gap-3 rounded-full bg-slate-950 px-6 text-sm font-bold text-white shadow-2xl shadow-slate-950/25 transition hover:bg-emerald-700"
+        onClick={() => setIsCartOpen(true)}
+        type="button"
+      >
+        Carrito
+        <span className="flex size-7 items-center justify-center rounded-full bg-emerald-500 text-xs text-white">
+          {totalItems}
+        </span>
+      </button>
+
+      {isCartOpen ? (
+        <div className="fixed inset-0 z-40">
+          <button
+            aria-label="Cerrar carrito"
+            className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm"
+            onClick={() => setIsCartOpen(false)}
+            type="button"
+          />
+
+          <aside className="absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-white shadow-2xl shadow-slate-950/20">
+            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                  Carrito
+                </p>
+                <h2 className="mt-1 text-2xl font-black tracking-tight">
+                  Productos agregados
+                </h2>
+              </div>
+              <button
+                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 transition hover:border-emerald-300 hover:text-emerald-700"
+                onClick={() => setIsCartOpen(false)}
+                type="button"
+              >
+                Cerrar
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-5">
+              {cartItems.length === 0 ? (
+                <div className="flex h-full min-h-80 items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-slate-50 px-6 text-center">
+                  <p className="text-lg font-bold text-slate-500">
+                    Tu carrito está vacío
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {cartItems.map((item) => (
+                    <article
+                      key={item.product.id}
+                      className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <h3 className="font-bold text-slate-950">
+                            {item.product.name}
+                          </h3>
+                          <p className="mt-1 text-sm text-slate-500">
+                            {formatPrice(item.product.price)}
+                          </p>
+                        </div>
+                        <button
+                          className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600 transition hover:bg-red-50 hover:text-red-700"
+                          onClick={() => removeFromCart(item.product.id)}
+                          type="button"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
+
+                      <div className="mt-5 flex items-center justify-between gap-4">
+                        <div className="flex items-center rounded-full border border-slate-200 bg-slate-50 p-1">
+                          <button
+                            className="flex size-9 items-center justify-center rounded-full bg-white text-lg font-black text-slate-700 shadow-sm transition hover:text-emerald-700"
+                            onClick={() => decreaseQuantity(item.product.id)}
+                            type="button"
+                          >
+                            -
+                          </button>
+                          <span className="min-w-10 text-center text-sm font-black">
+                            {item.quantity}
+                          </span>
+                          <button
+                            className="flex size-9 items-center justify-center rounded-full bg-white text-lg font-black text-slate-700 shadow-sm transition hover:text-emerald-700"
+                            onClick={() => increaseQuantity(item.product.id)}
+                            type="button"
+                          >
+                            +
+                          </button>
+                        </div>
+
+                        <div className="text-right">
+                          <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
+                            Subtotal
+                          </p>
+                          <p className="text-lg font-black">
+                            {formatPrice(item.product.price * item.quantity)}
+                          </p>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-slate-200 bg-slate-50 px-6 py-5">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-bold uppercase tracking-[0.16em] text-slate-500">
+                  Total general
+                </span>
+                <span className="text-2xl font-black tracking-tight">
+                  {formatPrice(cartTotal)}
+                </span>
+              </div>
+            </div>
+          </aside>
+        </div>
+      ) : null}
     </main>
   );
 }
