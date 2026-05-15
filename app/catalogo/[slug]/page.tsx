@@ -7,6 +7,13 @@ import { useEffect, useMemo, useState } from "react";
 import { products as baseProducts, type Product } from "@/lib/products";
 
 const ADMIN_PRODUCTS_KEY = "nexostock_admin_products";
+const CART_STORAGE_KEY = "nexostock_cart";
+const WHATSAPP_NUMBER = "50233838037";
+
+type CartItem = {
+  product: Product;
+  quantity: number;
+};
 
 const formatPrice = (price: number) =>
   `Q${price.toLocaleString("es-GT", {
@@ -18,6 +25,7 @@ export default function ProductDetailPage() {
   const params = useParams<{ slug: string }>();
   const [storedProducts, setStoredProducts] = useState<Product[]>([]);
   const [hasLoadedProducts, setHasLoadedProducts] = useState(false);
+  const [cartMessage, setCartMessage] = useState("");
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -40,6 +48,49 @@ export default function ProductDetailPage() {
     [storedProducts],
   );
   const product = allProducts.find((item) => item.slug === params.slug);
+
+  const addToCart = (selectedProduct: Product) => {
+    const storedCart = window.localStorage.getItem(CART_STORAGE_KEY);
+    let currentCart: CartItem[] = [];
+
+    if (storedCart) {
+      try {
+        currentCart = JSON.parse(storedCart) as CartItem[];
+      } catch {
+        currentCart = [];
+      }
+    }
+
+    const existingItem = currentCart.find(
+      (item) => item.product.id === selectedProduct.id,
+    );
+    const updatedCart = existingItem
+      ? currentCart.map((item) =>
+          item.product.id === selectedProduct.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item,
+        )
+      : [...currentCart, { product: selectedProduct, quantity: 1 }];
+
+    window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(updatedCart));
+    setCartMessage("Producto agregado al carrito");
+  };
+
+  const consultOnWhatsApp = (selectedProduct: Product) => {
+    const message = [
+      "Hola, quiero información de este producto:",
+      `Nombre: ${selectedProduct.name}`,
+      `Precio: ${formatPrice(selectedProduct.price)}`,
+      `Código: ${selectedProduct.imageCode}`,
+      `Categoría: ${selectedProduct.category}`,
+    ].join("\n");
+
+    window.open(
+      `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
+  };
 
   if (!hasLoadedProducts) {
     return (
@@ -199,17 +250,32 @@ export default function ProductDetailPage() {
           <div className="mt-8 flex flex-col gap-4 sm:flex-row">
             <button
               className="inline-flex h-12 items-center justify-center rounded-full bg-emerald-600 px-7 text-sm font-bold text-white shadow-xl shadow-emerald-700/20 transition hover:bg-emerald-700"
+              onClick={() => addToCart(product)}
               type="button"
             >
               Agregar al carrito
             </button>
             <button
               className="inline-flex h-12 items-center justify-center rounded-full border border-slate-300 bg-white px-7 text-sm font-bold text-slate-900 transition hover:border-emerald-300 hover:text-emerald-700"
+              onClick={() => consultOnWhatsApp(product)}
               type="button"
             >
               Consultar por WhatsApp
             </button>
           </div>
+
+          {cartMessage ? (
+            <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
+              {cartMessage}
+            </div>
+          ) : null}
+
+          <Link
+            href="/catalogo"
+            className="mt-4 inline-flex h-11 w-fit items-center justify-center rounded-full bg-slate-950 px-6 text-sm font-bold text-white transition hover:bg-emerald-700"
+          >
+            Ver carrito
+          </Link>
         </div>
       </section>
     </main>
