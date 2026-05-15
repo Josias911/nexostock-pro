@@ -90,9 +90,12 @@ export default function AdminProductsPage() {
                 Administra los productos del catálogo
               </p>
             </div>
-            <button className="inline-flex h-11 items-center justify-center rounded-full bg-slate-950 px-5 text-sm font-bold text-white transition hover:bg-emerald-700">
+            <Link
+              href="/admin/productos/nuevo"
+              className="inline-flex h-11 items-center justify-center rounded-full bg-slate-950 px-5 text-sm font-bold text-white transition hover:bg-emerald-700"
+            >
               Nuevo producto
-            </button>
+            </Link>
           </div>
 
           <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
