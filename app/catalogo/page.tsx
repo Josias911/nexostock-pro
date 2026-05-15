@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { products, type Product } from "@/lib/products";
 
@@ -11,6 +11,8 @@ const formatPrice = (price: number) =>
     maximumFractionDigits: 2,
   })}`;
 
+const CART_STORAGE_KEY = "nexostock_cart";
+
 type CartItem = {
   product: Product;
   quantity: number;
@@ -19,6 +21,7 @@ type CartItem = {
 export default function CatalogoPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [hasLoadedCart, setHasLoadedCart] = useState(false);
 
   const totalItems = cartItems.reduce((total, item) => total + item.quantity, 0);
   const cartTotal = useMemo(
@@ -29,6 +32,31 @@ export default function CatalogoPage() {
       ),
     [cartItems],
   );
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      const storedCart = window.localStorage.getItem(CART_STORAGE_KEY);
+
+      if (storedCart) {
+        try {
+          const parsedCart = JSON.parse(storedCart) as CartItem[];
+          setCartItems(parsedCart);
+        } catch {
+          window.localStorage.removeItem(CART_STORAGE_KEY);
+        }
+      }
+
+      setHasLoadedCart(true);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoadedCart) {
+      return;
+    }
+
+    window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartItems));
+  }, [cartItems, hasLoadedCart]);
 
   const addToCart = (product: Product) => {
     setCartItems((currentItems) => {
@@ -335,6 +363,12 @@ export default function CatalogoPage() {
                   {formatPrice(cartTotal)}
                 </span>
               </div>
+              <Link
+                href="/checkout"
+                className="mt-5 inline-flex h-12 w-full items-center justify-center rounded-full bg-emerald-600 px-6 text-sm font-bold text-white shadow-xl shadow-emerald-700/20 transition hover:bg-emerald-700"
+              >
+                Continuar pedido
+              </Link>
             </div>
           </aside>
         </div>
