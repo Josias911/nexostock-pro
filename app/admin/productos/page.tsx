@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { products } from "@/lib/products";
+
 const sidebarItems = [
   { label: "Dashboard", href: "/admin" },
   { label: "Productos", href: "/admin/productos" },
@@ -9,41 +11,42 @@ const sidebarItems = [
   { label: "Reportes", href: "#" },
 ];
 
-const summaryCards = [
-  { label: "Productos", value: "248", detail: "32 categorias activas" },
-  { label: "Pedidos", value: "36", detail: "8 pendientes de revisar" },
-  { label: "Ventas del día", value: "$8.4k", detail: "18 ventas completadas" },
-  { label: "Stock bajo", value: "12", detail: "Requieren reposición" },
-];
+const formatPrice = (price: number) =>
+  `Q${price.toLocaleString("es-GT", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 
-const recentOrders = [
-  {
-    id: "#NP-1024",
-    client: "Distribuidora Luna",
-    total: "$640.00",
-    status: "Confirmado",
-  },
-  {
-    id: "#NP-1023",
-    client: "Tienda Central",
-    total: "$285.00",
-    status: "Pendiente",
-  },
-  {
-    id: "#NP-1022",
-    client: "Carlos Mendez",
-    total: "$1,120.00",
-    status: "En preparación",
-  },
-  {
-    id: "#NP-1021",
-    client: "Office Market",
-    total: "$430.00",
-    status: "Entregado",
-  },
-];
+export default function AdminProductsPage() {
+  const featuredProducts = products.filter((product) => product.isFeatured);
+  const newProducts = products.filter((product) => product.isNew);
+  const lowStockProducts = products.filter(
+    (product) => product.status === "Stock bajo" || product.stock <= 10,
+  );
 
-export default function AdminPage() {
+  const summaryCards = [
+    {
+      label: "Total productos",
+      value: products.length,
+      detail: "Productos registrados",
+    },
+    {
+      label: "Productos destacados",
+      value: featuredProducts.length,
+      detail: "Visibles como prioridad",
+    },
+    {
+      label: "Productos nuevos",
+      value: newProducts.length,
+      detail: "Marcados para lanzamiento",
+    },
+    {
+      label: "Stock bajo",
+      value: lowStockProducts.length,
+      detail: "Requieren revisión",
+    },
+  ];
+
   return (
     <main className="min-h-screen bg-slate-100 text-slate-950">
       <div className="mx-auto flex min-h-screen max-w-7xl flex-col lg:flex-row">
@@ -63,7 +66,7 @@ export default function AdminPage() {
                 key={item.label}
                 href={item.href}
                 className={`whitespace-nowrap rounded-xl px-4 py-3 text-sm font-semibold transition ${
-                  item.label === "Dashboard"
+                  item.label === "Productos"
                     ? "bg-emerald-500 text-white"
                     : "text-slate-300 hover:bg-white/10 hover:text-white"
                 }`}
@@ -81,15 +84,15 @@ export default function AdminPage() {
                 Administración
               </p>
               <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">
-                Dashboard
+                Productos
               </h1>
+              <p className="mt-2 text-slate-500">
+                Administra los productos del catálogo
+              </p>
             </div>
-            <Link
-              href="/catalogo"
-              className="inline-flex h-11 items-center justify-center rounded-full bg-slate-950 px-5 text-sm font-bold text-white transition hover:bg-emerald-700"
-            >
-              Ver catálogo
-            </Link>
+            <button className="inline-flex h-11 items-center justify-center rounded-full bg-slate-950 px-5 text-sm font-bold text-white transition hover:bg-emerald-700">
+              Nuevo producto
+            </button>
           </div>
 
           <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -112,39 +115,66 @@ export default function AdminPage() {
           <section className="mt-8 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
               <div>
-                <h2 className="text-xl font-bold">Pedidos recientes</h2>
+                <h2 className="text-xl font-bold">Listado de productos</h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Últimos movimientos registrados en ventas.
+                  Vista administrativa del catálogo actual.
                 </p>
               </div>
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[680px] text-left text-sm">
+              <table className="w-full min-w-[920px] text-left text-sm">
                 <thead className="bg-slate-50 text-xs uppercase tracking-[0.14em] text-slate-500">
                   <tr>
-                    <th className="px-6 py-4 font-bold">Pedido</th>
-                    <th className="px-6 py-4 font-bold">Cliente</th>
-                    <th className="px-6 py-4 font-bold">Total</th>
+                    <th className="px-6 py-4 font-bold">Código</th>
+                    <th className="px-6 py-4 font-bold">Nombre</th>
+                    <th className="px-6 py-4 font-bold">Categoría</th>
+                    <th className="px-6 py-4 font-bold">Precio</th>
+                    <th className="px-6 py-4 font-bold">Stock</th>
                     <th className="px-6 py-4 font-bold">Estado</th>
+                    <th className="px-6 py-4 font-bold">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {recentOrders.map((order) => (
-                    <tr key={order.id} className="hover:bg-slate-50">
-                      <td className="px-6 py-4 font-bold text-slate-900">
-                        {order.id}
+                  {products.map((product) => (
+                    <tr key={product.id} className="hover:bg-slate-50">
+                      <td className="px-6 py-4 font-bold text-emerald-700">
+                        {product.imageCode}
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="font-bold text-slate-900">
+                          {product.name}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {product.slug}
+                        </p>
                       </td>
                       <td className="px-6 py-4 text-slate-600">
-                        {order.client}
+                        {product.category}
                       </td>
                       <td className="px-6 py-4 font-semibold">
-                        {order.total}
+                        {formatPrice(product.price)}
+                      </td>
+                      <td className="px-6 py-4 font-semibold">
+                        {product.stock}
                       </td>
                       <td className="px-6 py-4">
                         <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
-                          {order.status}
+                          {product.status}
                         </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-wrap gap-2">
+                          <button className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-700">
+                            Ver
+                          </button>
+                          <button className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-700">
+                            Editar
+                          </button>
+                          <button className="rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700 transition hover:bg-red-100">
+                            Eliminar
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
