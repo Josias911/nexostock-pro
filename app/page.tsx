@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 const features = [
   {
     title: "Catálogo digital",
@@ -73,9 +75,12 @@ export default function Home() {
             >
               Características
             </a>
-            <a className="transition hover:text-emerald-700" href="#demo">
+            <Link
+              className="transition hover:text-emerald-700"
+              href="/catalogo"
+            >
               Demo
-            </a>
+            </Link>
             <a className="transition hover:text-emerald-700" href="#contacto">
               Contacto
             </a>
@@ -99,18 +104,18 @@ export default function Home() {
               necesitan vender con orden.
             </p>
             <div className="mt-10 flex flex-col gap-4 sm:flex-row">
-              <a
-                href="#demo"
+              <Link
+                href="/catalogo"
                 className="inline-flex h-12 items-center justify-center rounded-full bg-emerald-600 px-7 text-sm font-bold text-white shadow-xl shadow-emerald-700/20 transition hover:bg-emerald-700"
               >
                 Ver demo
-              </a>
-              <a
-                href="#contacto"
+              </Link>
+              <Link
+                href="/login"
                 className="inline-flex h-12 items-center justify-center rounded-full border border-slate-300 bg-white px-7 text-sm font-bold text-slate-900 transition hover:border-emerald-300 hover:text-emerald-700"
               >
                 Entrar al panel
-              </a>
+              </Link>
             </div>
           </div>
 
@@ -222,18 +227,18 @@ export default function Home() {
             rápido y tomar decisiones con datos confiables.
           </p>
           <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
-            <a
-              href="#demo"
+            <Link
+              href="/catalogo"
               className="inline-flex h-12 items-center justify-center rounded-full bg-white px-7 text-sm font-bold text-slate-950 transition hover:bg-emerald-50"
             >
               Ver demo
-            </a>
-            <a
-              href="#inicio"
+            </Link>
+            <Link
+              href="/login"
               className="inline-flex h-12 items-center justify-center rounded-full border border-white/20 px-7 text-sm font-bold text-white transition hover:border-emerald-300 hover:text-emerald-200"
             >
               Entrar al panel
-            </a>
+            </Link>
           </div>
         </div>
       </section>
