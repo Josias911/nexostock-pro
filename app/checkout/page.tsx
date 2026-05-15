@@ -7,6 +7,7 @@ import type { Product } from "@/lib/products";
 
 const CART_STORAGE_KEY = "nexostock_cart";
 const WHATSAPP_NUMBER = "50233838037";
+const SHIPPING_FEE = 25;
 
 type CartItem = {
   product: Product;
@@ -31,6 +32,7 @@ const formatPrice = (price: number) =>
 export default function CheckoutPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [hasLoadedCart, setHasLoadedCart] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const [formData, setFormData] = useState<CustomerForm>({
     fullName: "",
     phone: "",
@@ -40,7 +42,7 @@ export default function CheckoutPage() {
     paymentMethod: "Pago contra entrega",
   });
 
-  const cartTotal = useMemo(
+  const productsSubtotal = useMemo(
     () =>
       cartItems.reduce(
         (total, item) => total + item.product.price * item.quantity,
@@ -48,6 +50,7 @@ export default function CheckoutPage() {
       ),
     [cartItems],
   );
+  const finalTotal = productsSubtotal + SHIPPING_FEE;
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -66,30 +69,47 @@ export default function CheckoutPage() {
     });
   }, []);
 
-  const updateField = (field: keyof CustomerForm, value: string) => {
+  const updateField = <Field extends keyof CustomerForm>(
+    field: Field,
+    value: CustomerForm[Field],
+  ) => {
     setFormData((currentData) => ({
       ...currentData,
       [field]: value,
     }));
+    setErrorMessage("");
   };
 
   const sendOrder = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    const hasMissingFields =
+      formData.fullName.trim() === "" ||
+      formData.phone.trim() === "" ||
+      formData.municipality.trim() === "" ||
+      formData.department.trim() === "" ||
+      formData.address.trim() === "" ||
+      formData.paymentMethod.trim() === "";
+
+    if (hasMissingFields) {
+      setErrorMessage("Por favor completa todos los datos del pedido.");
+      return;
+    }
+
     const productLines = cartItems
       .map(
-        (item) =>
-          `- ${item.product.name} x${item.quantity} | ${formatPrice(
-            item.product.price,
-          )} | Subtotal: ${formatPrice(item.product.price * item.quantity)}`,
+        (item, index) =>
+          `${index + 1}. ${item.product.name} x ${item.quantity} - ${formatPrice(
+            item.product.price * item.quantity,
+          )}`,
       )
       .join("\n");
 
     const message = [
-      "Hola, quiero realizar este pedido en NexoStock Pro:",
+      "Nuevo pedido - NexoStock Pro",
       "",
       "Datos del cliente:",
-      `Nombre completo: ${formData.fullName}`,
+      `Nombre: ${formData.fullName}`,
       `Teléfono: ${formData.phone}`,
       `Municipio: ${formData.municipality}`,
       `Departamento: ${formData.department}`,
@@ -99,7 +119,10 @@ export default function CheckoutPage() {
       "Productos:",
       productLines,
       "",
-      `Total general: ${formatPrice(cartTotal)}`,
+      "Resumen:",
+      `Subtotal: ${formatPrice(productsSubtotal)}`,
+      `Envío: ${formatPrice(SHIPPING_FEE)}`,
+      `Total final: ${formatPrice(finalTotal)}`,
     ].join("\n");
 
     window.open(
@@ -197,13 +220,29 @@ export default function CheckoutPage() {
                 ))}
               </div>
 
-              <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-6 py-5">
-                <span className="text-sm font-bold uppercase tracking-[0.16em] text-slate-500">
-                  Total general
-                </span>
-                <span className="text-2xl font-black">
-                  {formatPrice(cartTotal)}
-                </span>
+              <div className="space-y-3 border-t border-slate-200 bg-slate-50 px-6 py-5">
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-sm font-semibold text-slate-500">
+                    Subtotal de productos
+                  </span>
+                  <span className="font-bold">
+                    {formatPrice(productsSubtotal)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-sm font-semibold text-slate-500">
+                    Envío
+                  </span>
+                  <span className="font-bold">{formatPrice(SHIPPING_FEE)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-4 border-t border-slate-200 pt-3">
+                  <span className="text-sm font-bold uppercase tracking-[0.16em] text-slate-500">
+                    Total final
+                  </span>
+                  <span className="text-2xl font-black">
+                    {formatPrice(finalTotal)}
+                  </span>
+                </div>
               </div>
             </section>
 
@@ -212,6 +251,12 @@ export default function CheckoutPage() {
               onSubmit={sendOrder}
             >
               <h2 className="text-xl font-bold">Datos del cliente</h2>
+
+              {errorMessage ? (
+                <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                  {errorMessage}
+                </div>
+              ) : null}
 
               <div className="mt-6 grid gap-5">
                 <label className="block">
@@ -223,7 +268,6 @@ export default function CheckoutPage() {
                     onChange={(event) =>
                       updateField("fullName", event.target.value)
                     }
-                    required
                     type="text"
                     value={formData.fullName}
                   />
@@ -235,10 +279,7 @@ export default function CheckoutPage() {
                   </span>
                   <input
                     className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-medium outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
-                    onChange={(event) =>
-                      updateField("phone", event.target.value)
-                    }
-                    required
+                    onChange={(event) => updateField("phone", event.target.value)}
                     type="tel"
                     value={formData.phone}
                   />
@@ -254,7 +295,6 @@ export default function CheckoutPage() {
                       onChange={(event) =>
                         updateField("municipality", event.target.value)
                       }
-                      required
                       type="text"
                       value={formData.municipality}
                     />
@@ -269,7 +309,6 @@ export default function CheckoutPage() {
                       onChange={(event) =>
                         updateField("department", event.target.value)
                       }
-                      required
                       type="text"
                       value={formData.department}
                     />
@@ -285,7 +324,6 @@ export default function CheckoutPage() {
                     onChange={(event) =>
                       updateField("address", event.target.value)
                     }
-                    required
                     value={formData.address}
                   />
                 </label>
@@ -297,7 +335,10 @@ export default function CheckoutPage() {
                   <select
                     className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-medium outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
                     onChange={(event) =>
-                      updateField("paymentMethod", event.target.value)
+                      updateField(
+                        "paymentMethod",
+                        event.target.value as CustomerForm["paymentMethod"],
+                      )
                     }
                     value={formData.paymentMethod}
                   >
