@@ -4,7 +4,7 @@ const sidebarItems = [
   { label: "Dashboard", href: "/admin" },
   { label: "Productos", href: "/admin/productos" },
   { label: "Inventario", href: "/admin/inventario" },
-  { label: "Pedidos", href: "#" },
+  { label: "Pedidos", href: "/admin/pedidos" },
   { label: "Clientes", href: "#" },
   { label: "Reportes", href: "#" },
 ];
