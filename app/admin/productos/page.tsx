@@ -232,9 +232,22 @@ export default function AdminProductsPage() {
                           <button className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-700">
                             Ver
                           </button>
-                          <button className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-700">
-                            Editar
-                          </button>
+                          {product.source === "base" ? (
+                            <button
+                              className="cursor-not-allowed rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-400"
+                              disabled
+                              type="button"
+                            >
+                              Base
+                            </button>
+                          ) : (
+                            <Link
+                              href={`/admin/productos/editar/${product.slug}`}
+                              className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-700"
+                            >
+                              Editar
+                            </Link>
+                          )}
                           {product.source === "base" ? (
                             <button
                               className="cursor-not-allowed rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-400"
