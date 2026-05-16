@@ -71,6 +71,16 @@ export default function CatalogoPage() {
   }, []);
 
   useEffect(() => {
+    queueMicrotask(() => {
+      const searchParams = new URLSearchParams(window.location.search);
+
+      if (searchParams.get("carrito") === "1") {
+        setIsCartOpen(true);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
     if (!hasLoadedCart) {
       return;
     }

@@ -271,7 +271,7 @@ export default function ProductDetailPage() {
           ) : null}
 
           <Link
-            href="/catalogo"
+            href="/catalogo?carrito=1"
             className="mt-4 inline-flex h-11 w-fit items-center justify-center rounded-full bg-slate-950 px-6 text-sm font-bold text-white transition hover:bg-emerald-700"
           >
             Ver carrito
