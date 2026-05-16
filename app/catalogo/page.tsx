@@ -14,6 +14,18 @@ const formatPrice = (price: number) =>
 const CART_STORAGE_KEY = "nexostock_cart";
 const ADMIN_PRODUCTS_KEY = "nexostock_admin_products";
 
+const getStatusFromStock = (stock: number): Product["status"] => {
+  if (stock === 0) {
+    return "Agotado";
+  }
+
+  if (stock <= 10) {
+    return "Stock bajo";
+  }
+
+  return "Disponible";
+};
+
 type CartItem = {
   product: Product;
   quantity: number;
@@ -27,7 +39,16 @@ export default function CatalogoPage() {
 
   const totalItems = cartItems.reduce((total, item) => total + item.quantity, 0);
   const catalogProducts = useMemo(
-    () => [...products, ...storedProducts],
+    () => [
+      ...products.map((product) => ({
+        ...product,
+        status: getStatusFromStock(product.stock),
+      })),
+      ...storedProducts.map((product) => ({
+        ...product,
+        status: getStatusFromStock(product.stock),
+      })),
+    ],
     [storedProducts],
   );
   const cartTotal = useMemo(

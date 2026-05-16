@@ -22,6 +22,18 @@ const formatPrice = (price: number) =>
     maximumFractionDigits: 2,
   })}`;
 
+const getStatusFromStock = (stock: number): Product["status"] => {
+  if (stock === 0) {
+    return "Agotado";
+  }
+
+  if (stock <= 10) {
+    return "Stock bajo";
+  }
+
+  return "Disponible";
+};
+
 type ProductRow = Product & {
   source: "base" | "local";
 };
@@ -45,9 +57,14 @@ export default function AdminProductsPage() {
 
   const allProducts = useMemo<ProductRow[]>(
     () => [
-      ...baseProducts.map((product) => ({ ...product, source: "base" as const })),
+      ...baseProducts.map((product) => ({
+        ...product,
+        status: getStatusFromStock(product.stock),
+        source: "base" as const,
+      })),
       ...storedProducts.map((product) => ({
         ...product,
+        status: getStatusFromStock(product.stock),
         source: "local" as const,
       })),
     ],

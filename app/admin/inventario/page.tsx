@@ -152,9 +152,14 @@ export default function AdminInventoryPage() {
 
   const allProducts = useMemo<ProductRow[]>(
     () => [
-      ...baseProducts.map((product) => ({ ...product, source: "base" as const })),
+      ...baseProducts.map((product) => ({
+        ...product,
+        status: getStatusFromStock(product.stock),
+        source: "base" as const,
+      })),
       ...storedProducts.map((product) => ({
         ...product,
+        status: getStatusFromStock(product.stock),
         source: "local" as const,
       })),
     ],
