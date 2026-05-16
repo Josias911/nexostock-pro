@@ -9,7 +9,7 @@ const sidebarItems = [
   { label: "Inventario", href: "/admin/inventario" },
   { label: "Pedidos", href: "/admin/pedidos" },
   { label: "Clientes", href: "/admin/clientes" },
-  { label: "Reportes", href: "#" },
+  { label: "Reportes", href: "/admin/reportes" },
 ];
 
 const clients = [
