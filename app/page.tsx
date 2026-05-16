@@ -56,34 +56,37 @@ export default function Home() {
     <main className="min-h-screen bg-[#f7faf8] text-slate-950">
       <header className="sticky top-0 z-20 border-b border-emerald-950/10 bg-white/85 backdrop-blur-xl">
         <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 lg:px-8">
-          <a href="#inicio" className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3">
             <span className="flex size-10 items-center justify-center rounded-xl bg-emerald-600 text-lg font-black text-white shadow-lg shadow-emerald-700/20">
               N
             </span>
             <span className="text-lg font-bold tracking-tight text-slate-950">
               NexoStock Pro
             </span>
-          </a>
+          </Link>
 
           <div className="hidden items-center gap-8 text-sm font-medium text-slate-600 md:flex">
-            <a className="transition hover:text-emerald-700" href="#inicio">
+            <Link className="transition hover:text-emerald-700" href="/">
               Inicio
-            </a>
-            <a
+            </Link>
+            <Link
               className="transition hover:text-emerald-700"
-              href="#caracteristicas"
+              href="/#caracteristicas"
             >
               Características
-            </a>
+            </Link>
             <Link
               className="transition hover:text-emerald-700"
               href="/catalogo"
             >
               Demo
             </Link>
-            <a className="transition hover:text-emerald-700" href="#contacto">
+            <Link
+              className="transition hover:text-emerald-700"
+              href="/#contacto"
+            >
               Contacto
-            </a>
+            </Link>
           </div>
         </nav>
       </header>
