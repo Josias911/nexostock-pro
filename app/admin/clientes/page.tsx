@@ -1,7 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+
+const AUTH_STORAGE_KEY = "nexostock_auth";
 
 const sidebarItems = [
   { label: "Dashboard", href: "/admin" },
@@ -217,8 +220,39 @@ const getClientDetail = (client: Client) =>
   };
 
 export default function AdminClientsPage() {
+  const router = useRouter();
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [historyClient, setHistoryClient] = useState<Client | null>(null);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      const isAuthenticated =
+        window.localStorage.getItem(AUTH_STORAGE_KEY) === "true";
+
+      if (!isAuthenticated) {
+        router.replace("/login");
+        return;
+      }
+
+      setIsCheckingAuth(false);
+    });
+  }, [router]);
+
+  const logout = () => {
+    window.localStorage.removeItem(AUTH_STORAGE_KEY);
+    router.replace("/login");
+  };
+
+  if (isCheckingAuth) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-100 px-6 text-slate-950">
+        <p className="text-lg font-bold text-slate-500">
+          Verificando acceso...
+        </p>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-950">
@@ -248,6 +282,14 @@ export default function AdminClientsPage() {
               </Link>
             ))}
           </nav>
+
+          <button
+            className="mt-6 inline-flex h-11 w-full items-center justify-center rounded-full border border-white/10 bg-white/10 px-4 text-sm font-bold text-white transition hover:border-emerald-300 hover:bg-emerald-500"
+            onClick={logout}
+            type="button"
+          >
+            Cerrar sesión
+          </button>
         </aside>
 
         <section className="flex-1 px-6 py-8 lg:px-8">

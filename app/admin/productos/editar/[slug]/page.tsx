@@ -7,6 +7,7 @@ import { FormEvent, useEffect, useState } from "react";
 import type { Product } from "@/lib/products";
 
 const ADMIN_PRODUCTS_KEY = "nexostock_admin_products";
+const AUTH_STORAGE_KEY = "nexostock_auth";
 
 const sidebarItems = [
   { label: "Dashboard", href: "/admin" },
@@ -51,9 +52,24 @@ export default function EditProductPage() {
   const [productId, setProductId] = useState("");
   const [hasLoadedProduct, setHasLoadedProduct] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const slug = Array.isArray(params.slug)
     ? (params.slug[0] ?? "")
     : (params.slug ?? "");
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      const isAuthenticated =
+        window.localStorage.getItem(AUTH_STORAGE_KEY) === "true";
+
+      if (!isAuthenticated) {
+        router.replace("/login");
+        return;
+      }
+
+      setIsCheckingAuth(false);
+    });
+  }, [router]);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -147,6 +163,11 @@ export default function EditProductPage() {
     router.push("/admin/productos");
   };
 
+  const logout = () => {
+    window.localStorage.removeItem(AUTH_STORAGE_KEY);
+    router.replace("/login");
+  };
+
   const renderShell = (children: React.ReactNode) => (
     <main className="min-h-screen bg-slate-100 text-slate-950">
       <div className="mx-auto flex min-h-screen max-w-7xl flex-col lg:flex-row">
@@ -175,12 +196,30 @@ export default function EditProductPage() {
               </Link>
             ))}
           </nav>
+
+          <button
+            className="mt-6 inline-flex h-11 w-full items-center justify-center rounded-full border border-white/10 bg-white/10 px-4 text-sm font-bold text-white transition hover:border-emerald-300 hover:bg-emerald-500"
+            onClick={logout}
+            type="button"
+          >
+            Cerrar sesión
+          </button>
         </aside>
 
         <section className="flex-1 px-6 py-8 lg:px-8">{children}</section>
       </div>
     </main>
   );
+
+  if (isCheckingAuth) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-100 px-6 text-slate-950">
+        <p className="text-lg font-bold text-slate-500">
+          Verificando acceso...
+        </p>
+      </main>
+    );
+  }
 
   if (!hasLoadedProduct) {
     return renderShell(
