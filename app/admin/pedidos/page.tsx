@@ -12,11 +12,21 @@ type OrderStatus =
   | "Entregado"
   | "Cancelado";
 
+type OrderProduct = {
+  name: string;
+  quantity: number;
+  unitPrice: string;
+  subtotal: string;
+};
+
 type Order = {
   id: string;
   client: string;
   phone: string;
   municipality: string;
+  address?: string;
+  paymentMethod?: string;
+  products?: OrderProduct[];
   total: string;
   status: OrderStatus;
   date: string;
@@ -45,6 +55,22 @@ const exampleOrders: Order[] = [
     client: "Mariana Lopez",
     phone: "502 4210 8821",
     municipality: "Guatemala",
+    address: "Zona 10, 12 calle 4-55, oficina 302",
+    paymentMethod: "Pago contra entrega",
+    products: [
+      {
+        name: "Auriculares Pro",
+        quantity: 1,
+        unitPrice: "Q695.00",
+        subtotal: "Q695.00",
+      },
+      {
+        name: "Mouse Inalambrico",
+        quantity: 2,
+        unitPrice: "Q285.00",
+        subtotal: "Q570.00",
+      },
+    ],
     total: "Q1,245.00",
     status: "Pendiente",
     date: "15/05/2026",
@@ -54,6 +80,22 @@ const exampleOrders: Order[] = [
     client: "Distribuidora Luna",
     phone: "502 3388 4022",
     municipality: "Mixco",
+    address: "Boulevard El Naranjo, bodega 8",
+    paymentMethod: "Depósito o transferencia",
+    products: [
+      {
+        name: "Monitor 27 pulgadas",
+        quantity: 1,
+        unitPrice: "Q2,495.00",
+        subtotal: "Q2,495.00",
+      },
+      {
+        name: "Kit de Repuestos Basico",
+        quantity: 1,
+        unitPrice: "Q365.00",
+        subtotal: "Q365.00",
+      },
+    ],
     total: "Q2,860.00",
     status: "Confirmado",
     date: "15/05/2026",
@@ -63,6 +105,22 @@ const exampleOrders: Order[] = [
     client: "Tienda Central",
     phone: "502 5541 2098",
     municipality: "Villa Nueva",
+    address: "Centro comercial local 14, zona 4",
+    paymentMethod: "Pago contra entrega",
+    products: [
+      {
+        name: "Bocina Bluetooth Max",
+        quantity: 1,
+        unitPrice: "Q540.00",
+        subtotal: "Q540.00",
+      },
+      {
+        name: "Camisa Industrial",
+        quantity: 1,
+        unitPrice: "Q240.00",
+        subtotal: "Q240.00",
+      },
+    ],
     total: "Q780.00",
     status: "En preparación",
     date: "14/05/2026",
@@ -72,6 +130,16 @@ const exampleOrders: Order[] = [
     client: "Carlos Mendez",
     phone: "502 4122 7730",
     municipality: "San Miguel Petapa",
+    address: "Colonia Prados, casa 22",
+    paymentMethod: "Pago contra entrega",
+    products: [
+      {
+        name: "Teclado Mecanico",
+        quantity: 1,
+        unitPrice: "Q430.00",
+        subtotal: "Q430.00",
+      },
+    ],
     total: "Q430.00",
     status: "Entregado",
     date: "14/05/2026",
@@ -81,6 +149,22 @@ const exampleOrders: Order[] = [
     client: "Office Market",
     phone: "502 3091 6655",
     municipality: "Antigua Guatemala",
+    address: "5a avenida norte 18",
+    paymentMethod: "Depósito o transferencia",
+    products: [
+      {
+        name: "Taladro Compacto",
+        quantity: 1,
+        unitPrice: "Q725.00",
+        subtotal: "Q725.00",
+      },
+      {
+        name: "Kit de Repuestos Basico",
+        quantity: 1,
+        unitPrice: "Q395.00",
+        subtotal: "Q395.00",
+      },
+    ],
     total: "Q1,120.00",
     status: "Cancelado",
     date: "13/05/2026",
@@ -90,6 +174,21 @@ const exampleOrders: Order[] = [
 const latestOrderProducts = [
   { name: "Auriculares Pro", quantity: 1, subtotal: "Q695.00" },
   { name: "Mouse Inalambrico", quantity: 2, subtotal: "Q570.00" },
+];
+
+const fallbackProducts: OrderProduct[] = [
+  {
+    name: "Auriculares Pro",
+    quantity: 1,
+    unitPrice: "Q695.00",
+    subtotal: "Q695.00",
+  },
+  {
+    name: "Mouse Inalambrico",
+    quantity: 2,
+    unitPrice: "Q285.00",
+    subtotal: "Q570.00",
+  },
 ];
 
 const normalizeOrderStatus = (status: string): OrderStatus => {
@@ -124,12 +223,24 @@ const getStatusClass = (status: OrderStatus) => {
   return "bg-red-50 text-red-700";
 };
 
+const getOrderProducts = (order: Order) =>
+  order.products && order.products.length > 0
+    ? order.products
+    : fallbackProducts;
+
+const getOrderAddress = (order: Order) =>
+  order.address ?? "Direccion de ejemplo, zona central";
+
+const getOrderPaymentMethod = (order: Order) =>
+  order.paymentMethod ?? "Pago contra entrega";
+
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>(exampleOrders);
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
+  const [detailOrder, setDetailOrder] = useState<Order | null>(null);
   const [selectedStatus, setSelectedStatus] =
     useState<OrderStatus>("Pendiente");
-  const latestOrder = orders[0];
+  const latestOrder = orders[0] ?? exampleOrders[0];
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -198,6 +309,14 @@ export default function AdminOrdersPage() {
   const closeStatusModal = () => {
     setActiveOrder(null);
     setSelectedStatus("Pendiente");
+  };
+
+  const openDetailModal = (order: Order) => {
+    setDetailOrder(order);
+  };
+
+  const closeDetailModal = () => {
+    setDetailOrder(null);
   };
 
   const saveOrderStatus = () => {
@@ -337,6 +456,7 @@ export default function AdminOrdersPage() {
                         <div className="flex flex-wrap gap-2">
                           <button
                             className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-700"
+                            onClick={() => openDetailModal(order)}
                             type="button"
                           >
                             Ver
@@ -405,7 +525,7 @@ export default function AdminOrdersPage() {
                       Metodo de pago
                     </dt>
                     <dd className="font-bold text-slate-900">
-                      Pago contra entrega
+                      {getOrderPaymentMethod(latestOrder)}
                     </dd>
                   </div>
                 </dl>
@@ -497,6 +617,162 @@ export default function AdminOrdersPage() {
               >
                 Guardar estado
               </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {detailOrder ? (
+        <div className="fixed inset-0 z-50 flex items-end bg-slate-950/50 px-4 py-6 backdrop-blur-sm sm:items-center sm:justify-center">
+          <section className="max-h-[90vh] w-full overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl sm:max-w-3xl">
+            <div className="flex flex-col gap-4 border-b border-slate-200 px-6 py-5 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                  Detalle del pedido
+                </p>
+                <h2 className="mt-2 text-2xl font-black tracking-tight">
+                  {detailOrder.id}
+                </h2>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-bold ${getStatusClass(
+                      detailOrder.status,
+                    )}`}
+                  >
+                    {detailOrder.status}
+                  </span>
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+                    {detailOrder.date}
+                  </span>
+                </div>
+              </div>
+              <button
+                className="inline-flex h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-5 text-sm font-bold text-slate-900 transition hover:border-emerald-300 hover:text-emerald-700"
+                onClick={closeDetailModal}
+                type="button"
+              >
+                Cerrar
+              </button>
+            </div>
+
+            <div className="max-h-[calc(90vh-8rem)] overflow-y-auto px-6 py-5">
+              <div className="grid gap-5 lg:grid-cols-2">
+                <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                  <h3 className="text-sm font-black uppercase tracking-[0.16em] text-slate-500">
+                    Datos del cliente
+                  </h3>
+                  <dl className="mt-4 grid gap-3 text-sm">
+                    <div className="flex items-start justify-between gap-4">
+                      <dt className="font-semibold text-slate-500">Cliente</dt>
+                      <dd className="text-right font-bold text-slate-900">
+                        {detailOrder.client}
+                      </dd>
+                    </div>
+                    <div className="flex items-start justify-between gap-4">
+                      <dt className="font-semibold text-slate-500">Telefono</dt>
+                      <dd className="text-right font-bold text-slate-900">
+                        {detailOrder.phone}
+                      </dd>
+                    </div>
+                    <div className="flex items-start justify-between gap-4">
+                      <dt className="font-semibold text-slate-500">
+                        Municipio
+                      </dt>
+                      <dd className="text-right font-bold text-slate-900">
+                        {detailOrder.municipality}
+                      </dd>
+                    </div>
+                    <div className="flex items-start justify-between gap-4">
+                      <dt className="font-semibold text-slate-500">
+                        Direccion
+                      </dt>
+                      <dd className="max-w-56 text-right font-bold text-slate-900">
+                        {getOrderAddress(detailOrder)}
+                      </dd>
+                    </div>
+                    <div className="flex items-start justify-between gap-4">
+                      <dt className="font-semibold text-slate-500">
+                        Metodo de pago
+                      </dt>
+                      <dd className="text-right font-bold text-slate-900">
+                        {getOrderPaymentMethod(detailOrder)}
+                      </dd>
+                    </div>
+                  </dl>
+                </section>
+
+                <section className="rounded-2xl border border-slate-200 bg-white p-5">
+                  <h3 className="text-sm font-black uppercase tracking-[0.16em] text-slate-500">
+                    Resumen
+                  </h3>
+                  <div className="mt-4 grid gap-3 text-sm">
+                    <div className="flex items-center justify-between gap-4 rounded-2xl bg-slate-50 px-4 py-3">
+                      <span className="font-semibold text-slate-500">
+                        Pedido
+                      </span>
+                      <span className="font-black text-slate-900">
+                        {detailOrder.id}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-4 rounded-2xl bg-slate-50 px-4 py-3">
+                      <span className="font-semibold text-slate-500">
+                        Fecha
+                      </span>
+                      <span className="font-black text-slate-900">
+                        {detailOrder.date}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-4 rounded-2xl bg-slate-950 px-4 py-3 text-white">
+                      <span className="font-bold uppercase tracking-[0.14em] text-slate-300">
+                        Total general
+                      </span>
+                      <span className="text-xl font-black">
+                        {detailOrder.total}
+                      </span>
+                    </div>
+                  </div>
+                </section>
+              </div>
+
+              <section className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                <div className="border-b border-slate-200 px-5 py-4">
+                  <h3 className="text-sm font-black uppercase tracking-[0.16em] text-slate-500">
+                    Productos solicitados
+                  </h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[640px] text-left text-sm">
+                    <thead className="bg-slate-50 text-xs uppercase tracking-[0.14em] text-slate-500">
+                      <tr>
+                        <th className="px-5 py-4 font-bold">Producto</th>
+                        <th className="px-5 py-4 font-bold">Cantidad</th>
+                        <th className="px-5 py-4 font-bold">
+                          Precio unitario
+                        </th>
+                        <th className="px-5 py-4 font-bold">Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {getOrderProducts(detailOrder).map((product) => (
+                        <tr key={product.name} className="hover:bg-slate-50">
+                          <td className="px-5 py-4 font-bold text-slate-900">
+                            {product.name}
+                          </td>
+                          <td className="px-5 py-4 text-slate-600">
+                            {product.quantity}
+                          </td>
+                          <td className="px-5 py-4 font-semibold text-slate-700">
+                            {product.unitPrice}
+                          </td>
+                          <td className="px-5 py-4 font-black text-slate-900">
+                            {product.subtotal}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
             </div>
           </section>
         </div>
