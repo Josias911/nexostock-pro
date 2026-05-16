@@ -1,4 +1,26 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+
+const ORDERS_STORAGE_KEY = "nexostock_orders";
+
+type OrderStatus =
+  | "Pendiente"
+  | "Confirmado"
+  | "En preparación"
+  | "Entregado"
+  | "Cancelado";
+
+type Order = {
+  id: string;
+  client: string;
+  phone: string;
+  municipality: string;
+  total: string;
+  status: OrderStatus;
+  date: string;
+};
 
 const sidebarItems = [
   { label: "Dashboard", href: "/admin" },
@@ -9,7 +31,15 @@ const sidebarItems = [
   { label: "Reportes", href: "#" },
 ];
 
-const orders = [
+const statusOptions: OrderStatus[] = [
+  "Pendiente",
+  "Confirmado",
+  "En preparación",
+  "Entregado",
+  "Cancelado",
+];
+
+const exampleOrders: Order[] = [
   {
     id: "#NP-1032",
     client: "Mariana Lopez",
@@ -34,7 +64,7 @@ const orders = [
     phone: "502 5541 2098",
     municipality: "Villa Nueva",
     total: "Q780.00",
-    status: "En preparacion",
+    status: "En preparación",
     date: "14/05/2026",
   },
   {
@@ -57,35 +87,24 @@ const orders = [
   },
 ];
 
-const summaryCards = [
-  {
-    label: "Total pedidos",
-    value: orders.length,
-    detail: "Pedidos registrados",
-  },
-  {
-    label: "Pendientes",
-    value: orders.filter((order) => order.status === "Pendiente").length,
-    detail: "Por confirmar",
-  },
-  {
-    label: "En preparacion",
-    value: orders.filter((order) => order.status === "En preparacion").length,
-    detail: "En proceso interno",
-  },
-  {
-    label: "Entregados",
-    value: orders.filter((order) => order.status === "Entregado").length,
-    detail: "Pedidos completados",
-  },
-];
-
 const latestOrderProducts = [
   { name: "Auriculares Pro", quantity: 1, subtotal: "Q695.00" },
   { name: "Mouse Inalambrico", quantity: 2, subtotal: "Q570.00" },
 ];
 
-const getStatusClass = (status: string) => {
+const normalizeOrderStatus = (status: string): OrderStatus => {
+  if (status === "En preparacion") {
+    return "En preparación";
+  }
+
+  if (statusOptions.includes(status as OrderStatus)) {
+    return status as OrderStatus;
+  }
+
+  return "Pendiente";
+};
+
+const getStatusClass = (status: OrderStatus) => {
   if (status === "Pendiente") {
     return "bg-amber-50 text-amber-700";
   }
@@ -94,7 +113,7 @@ const getStatusClass = (status: string) => {
     return "bg-sky-50 text-sky-700";
   }
 
-  if (status === "En preparacion") {
+  if (status === "En preparación") {
     return "bg-violet-50 text-violet-700";
   }
 
@@ -106,7 +125,99 @@ const getStatusClass = (status: string) => {
 };
 
 export default function AdminOrdersPage() {
+  const [orders, setOrders] = useState<Order[]>(exampleOrders);
+  const [activeOrder, setActiveOrder] = useState<Order | null>(null);
+  const [selectedStatus, setSelectedStatus] =
+    useState<OrderStatus>("Pendiente");
   const latestOrder = orders[0];
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      const savedOrders = window.localStorage.getItem(ORDERS_STORAGE_KEY);
+
+      if (savedOrders) {
+        try {
+          const parsedOrders = (JSON.parse(savedOrders) as Order[]).map(
+            (order) => ({
+              ...order,
+              status: normalizeOrderStatus(order.status),
+            }),
+          );
+
+          setOrders(parsedOrders);
+          window.localStorage.setItem(
+            ORDERS_STORAGE_KEY,
+            JSON.stringify(parsedOrders),
+          );
+          return;
+        } catch {
+          window.localStorage.removeItem(ORDERS_STORAGE_KEY);
+        }
+      }
+
+      window.localStorage.setItem(
+        ORDERS_STORAGE_KEY,
+        JSON.stringify(exampleOrders),
+      );
+      setOrders(exampleOrders);
+    });
+  }, []);
+
+  const summaryCards = useMemo(
+    () => [
+      {
+        label: "Total pedidos",
+        value: orders.length,
+        detail: "Pedidos registrados",
+      },
+      {
+        label: "Pendientes",
+        value: orders.filter((order) => order.status === "Pendiente").length,
+        detail: "Por confirmar",
+      },
+      {
+        label: "En preparación",
+        value: orders.filter((order) => order.status === "En preparación")
+          .length,
+        detail: "En proceso interno",
+      },
+      {
+        label: "Entregados",
+        value: orders.filter((order) => order.status === "Entregado").length,
+        detail: "Pedidos completados",
+      },
+    ],
+    [orders],
+  );
+
+  const openStatusModal = (order: Order) => {
+    setActiveOrder(order);
+    setSelectedStatus(order.status);
+  };
+
+  const closeStatusModal = () => {
+    setActiveOrder(null);
+    setSelectedStatus("Pendiente");
+  };
+
+  const saveOrderStatus = () => {
+    if (!activeOrder) {
+      return;
+    }
+
+    const updatedOrders = orders.map((order) =>
+      order.id === activeOrder.id
+        ? { ...order, status: selectedStatus }
+        : order,
+    );
+
+    window.localStorage.setItem(
+      ORDERS_STORAGE_KEY,
+      JSON.stringify(updatedOrders),
+    );
+    setOrders(updatedOrders);
+    closeStatusModal();
+  };
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-950">
@@ -232,6 +343,7 @@ export default function AdminOrdersPage() {
                           </button>
                           <button
                             className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-sky-50 hover:text-sky-700"
+                            onClick={() => openStatusModal(order)}
                             type="button"
                           >
                             Cambiar estado
@@ -337,6 +449,58 @@ export default function AdminOrdersPage() {
           </section>
         </section>
       </div>
+
+      {activeOrder ? (
+        <div className="fixed inset-0 z-50 flex items-end bg-slate-950/50 px-4 py-6 backdrop-blur-sm sm:items-center sm:justify-center">
+          <section className="w-full rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl sm:max-w-lg">
+            <div className="border-b border-slate-200 pb-5">
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                Cambiar estado
+              </p>
+              <h2 className="mt-2 text-2xl font-black tracking-tight">
+                {activeOrder.id}
+              </h2>
+              <p className="mt-1 text-sm font-semibold text-slate-500">
+                Cliente: {activeOrder.client}
+              </p>
+            </div>
+
+            <label className="mt-5 block">
+              <span className="text-sm font-bold text-slate-700">
+                Estado del pedido
+              </span>
+              <select
+                className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-medium outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                onChange={(event) =>
+                  setSelectedStatus(event.target.value as OrderStatus)
+                }
+                value={selectedStatus}
+              >
+                {statusOptions.map((status) => (
+                  <option key={status}>{status}</option>
+                ))}
+              </select>
+            </label>
+
+            <div className="mt-6 flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end">
+              <button
+                className="inline-flex h-11 items-center justify-center rounded-full border border-slate-300 bg-white px-6 text-sm font-bold text-slate-900 transition hover:border-emerald-300 hover:text-emerald-700"
+                onClick={closeStatusModal}
+                type="button"
+              >
+                Cancelar
+              </button>
+              <button
+                className="inline-flex h-11 items-center justify-center rounded-full bg-emerald-600 px-6 text-sm font-bold text-white shadow-lg shadow-emerald-700/20 transition hover:bg-emerald-700"
+                onClick={saveOrderStatus}
+                type="button"
+              >
+                Guardar estado
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </main>
   );
 }
