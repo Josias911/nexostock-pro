@@ -3,7 +3,7 @@ import Link from "next/link";
 const sidebarItems = [
   { label: "Dashboard", href: "/admin" },
   { label: "Productos", href: "/admin/productos" },
-  { label: "Inventario", href: "#" },
+  { label: "Inventario", href: "/admin/inventario" },
   { label: "Pedidos", href: "#" },
   { label: "Clientes", href: "#" },
   { label: "Reportes", href: "#" },
