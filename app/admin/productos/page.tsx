@@ -22,6 +22,10 @@ const formatPrice = (price: number) =>
     maximumFractionDigits: 2,
   })}`;
 
+type ProductRow = Product & {
+  source: "base" | "local";
+};
+
 export default function AdminProductsPage() {
   const [storedProducts, setStoredProducts] = useState<Product[]>([]);
 
@@ -39,10 +43,39 @@ export default function AdminProductsPage() {
     });
   }, []);
 
-  const allProducts = useMemo(
-    () => [...baseProducts, ...storedProducts],
+  const allProducts = useMemo<ProductRow[]>(
+    () => [
+      ...baseProducts.map((product) => ({ ...product, source: "base" as const })),
+      ...storedProducts.map((product) => ({
+        ...product,
+        source: "local" as const,
+      })),
+    ],
     [storedProducts],
   );
+
+  const deleteStoredProduct = (productId: string) => {
+    const shouldDelete = window.confirm(
+      "¿Seguro que deseas eliminar este producto?",
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setStoredProducts((currentProducts) => {
+      const updatedProducts = currentProducts.filter(
+        (product) => product.id !== productId,
+      );
+
+      window.localStorage.setItem(
+        ADMIN_PRODUCTS_KEY,
+        JSON.stringify(updatedProducts),
+      );
+
+      return updatedProducts;
+    });
+  };
 
   const summaryCards = useMemo(() => {
     const featuredProducts = allProducts.filter((product) => product.isFeatured);
@@ -202,9 +235,23 @@ export default function AdminProductsPage() {
                           <button className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-700">
                             Editar
                           </button>
-                          <button className="rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700 transition hover:bg-red-100">
-                            Eliminar
-                          </button>
+                          {product.source === "base" ? (
+                            <button
+                              className="cursor-not-allowed rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-400"
+                              disabled
+                              type="button"
+                            >
+                              Base
+                            </button>
+                          ) : (
+                            <button
+                              className="rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700 transition hover:bg-red-100"
+                              onClick={() => deleteStoredProduct(product.id)}
+                              type="button"
+                            >
+                              Eliminar
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
