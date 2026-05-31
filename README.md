@@ -56,6 +56,12 @@ Contrasena:
 123456
 ```
 
+## Enlace del proyecto publicado
+
+https://nexostock-pro.vercel.app
+
+El proyecto fue desplegado en Vercel y actualmente usa `localStorage` como almacenamiento temporal.
+
 ## Pendiente por implementar
 
 Todavia falta agregar varias partes importantes para que el proyecto funcione como un sistema completo:
