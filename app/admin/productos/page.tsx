@@ -84,6 +84,10 @@ export default function AdminProductsPage() {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [productsError, setProductsError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [deletingProductId, setDeletingProductId] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -182,6 +186,41 @@ export default function AdminProductsPage() {
 
       return updatedProducts;
     });
+    setProductsError(null);
+    setSuccessMessage("Producto eliminado correctamente.");
+    window.setTimeout(() => setSuccessMessage(""), 2500);
+  };
+
+  const deleteSupabaseProduct = async (productId: string) => {
+    const shouldDelete = window.confirm(
+      "¿Seguro que deseas eliminar este producto?",
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setDeletingProductId(productId);
+    setProductsError(null);
+    setSuccessMessage("");
+
+    const { error } = await supabase
+      .from("products")
+      .delete()
+      .eq("id", productId);
+
+    setDeletingProductId(null);
+
+    if (error) {
+      setProductsError("No se pudo eliminar el producto.");
+      return;
+    }
+
+    setSupabaseProducts((currentProducts) =>
+      currentProducts.filter((product) => product.id !== productId),
+    );
+    setSuccessMessage("Producto eliminado correctamente.");
+    window.setTimeout(() => setSuccessMessage(""), 2500);
   };
 
   const logout = () => {
@@ -323,6 +362,11 @@ export default function AdminProductsPage() {
                     {productsError}
                   </p>
                 ) : null}
+                {successMessage ? (
+                  <p className="mt-2 text-sm font-bold text-emerald-700">
+                    {successMessage}
+                  </p>
+                ) : null}
               </div>
             </div>
 
@@ -403,11 +447,14 @@ export default function AdminProductsPage() {
                           </Link>
                           {product.source === "supabase" ? (
                             <button
-                              className="cursor-not-allowed rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-400"
-                              disabled
+                              className="rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                              disabled={deletingProductId === product.id}
+                              onClick={() => deleteSupabaseProduct(product.id)}
                               type="button"
                             >
-                              BD
+                              {deletingProductId === product.id
+                                ? "Eliminando..."
+                                : "Eliminar"}
                             </button>
                           ) : (
                             <button
