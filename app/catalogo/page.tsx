@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-import { products, type Product } from "@/lib/products";
+import { type Product } from "@/lib/products";
+import { supabase } from "@/lib/supabase";
 
 const formatPrice = (price: number) =>
   `Q${price.toLocaleString("es-GT", {
@@ -31,26 +32,88 @@ type CartItem = {
   quantity: number;
 };
 
+type SupabaseProduct = {
+  id: string;
+  name: string;
+  slug: string;
+  price: number;
+  category: Product["category"];
+  stock: number;
+  status: Product["status"] | null;
+  image_code: string | null;
+  is_new: boolean | null;
+  is_featured: boolean | null;
+  description: string;
+};
+
+const mapSupabaseProduct = (product: SupabaseProduct): Product => {
+  const stock = Number(product.stock);
+
+  return {
+    id: String(product.id),
+    name: product.name,
+    slug: product.slug,
+    price: Number(product.price),
+    category: product.category,
+    stock,
+    status: product.status ?? getStatusFromStock(stock),
+    imageCode: product.image_code ?? "",
+    isNew: Boolean(product.is_new),
+    isFeatured: Boolean(product.is_featured),
+    description: product.description,
+  };
+};
+
 export default function CatalogoPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [hasLoadedCart, setHasLoadedCart] = useState(false);
+  const [supabaseProducts, setSupabaseProducts] = useState<Product[]>([]);
   const [storedProducts, setStoredProducts] = useState<Product[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
+  const [productsError, setProductsError] = useState<string | null>(null);
 
   const totalItems = cartItems.reduce((total, item) => total + item.quantity, 0);
   const catalogProducts = useMemo(
     () => [
-      ...products.map((product) => ({
-        ...product,
-        status: getStatusFromStock(product.stock),
-      })),
+      ...supabaseProducts,
       ...storedProducts.map((product) => ({
         ...product,
         status: getStatusFromStock(product.stock),
       })),
     ],
-    [storedProducts],
+    [storedProducts, supabaseProducts],
   );
+  const filteredProducts = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+
+    if (!normalizedSearch) {
+      return catalogProducts;
+    }
+
+    return catalogProducts.filter((product) => {
+      const searchableText = [
+        product.name,
+        product.category,
+        product.description,
+        product.imageCode,
+        product.price.toString(),
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return searchableText.includes(normalizedSearch);
+    });
+  }, [catalogProducts, searchTerm]);
+  const hasProductsToShow = filteredProducts.length > 0;
+  const showEmptyProductsState =
+    !isLoadingProducts && !productsError && !hasProductsToShow;
+  const showProductsGrid = !isLoadingProducts && hasProductsToShow;
+  const showErrorMessage = !isLoadingProducts && productsError !== null;
+  const productCountLabel =
+    filteredProducts.length === 1 ? "producto" : "productos";
+  const productCountText = `${filteredProducts.length} ${productCountLabel}`;
   const cartTotal = useMemo(
     () =>
       cartItems.reduce(
@@ -59,6 +122,42 @@ export default function CatalogoPage() {
       ),
     [cartItems],
   );
+
+  useEffect(() => {
+    let shouldIgnoreResult = false;
+
+    const loadProducts = async () => {
+      setIsLoadingProducts(true);
+      setProductsError(null);
+
+      const { data, error } = await supabase
+        .from("products")
+        .select(
+          "id, name, slug, price, category, stock, status, image_code, is_new, is_featured, description",
+        );
+
+      if (shouldIgnoreResult) {
+        return;
+      }
+
+      if (error) {
+        setSupabaseProducts([]);
+        setProductsError("No se pudieron cargar los productos desde Supabase.");
+      } else {
+        setSupabaseProducts(
+          ((data ?? []) as SupabaseProduct[]).map(mapSupabaseProduct),
+        );
+      }
+
+      setIsLoadingProducts(false);
+    };
+
+    loadProducts();
+
+    return () => {
+      shouldIgnoreResult = true;
+    };
+  }, []);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -210,14 +309,34 @@ export default function CatalogoPage() {
               <input
                 className="w-full bg-transparent text-sm font-medium text-slate-900 outline-none placeholder:text-slate-400"
                 placeholder="Buscar por nombre, categoría o precio"
+                onChange={(event) => setSearchTerm(event.target.value)}
                 type="search"
+                value={searchTerm}
               />
             </label>
           </div>
         </div>
 
-        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {catalogProducts.map((product) => (
+        <div className="mt-8 flex items-center justify-between gap-4 border-y border-slate-200 py-4 text-sm font-bold text-slate-500">
+          <span>
+            {isLoadingProducts ? "Cargando productos..." : productCountText}
+          </span>
+          {showErrorMessage ? (
+            <span className="text-right text-red-600">{productsError}</span>
+          ) : null}
+        </div>
+
+        {showEmptyProductsState ? (
+          <div className="mt-12 rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
+            <p className="text-lg font-bold text-slate-500">
+              No hay productos para mostrar.
+            </p>
+          </div>
+        ) : null}
+
+        {showProductsGrid ? (
+          <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {filteredProducts.map((product) => (
             <article
               key={product.id}
               className="flex min-h-[28rem] flex-col justify-between rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-emerald-200 hover:shadow-xl hover:shadow-emerald-950/5"
@@ -294,8 +413,9 @@ export default function CatalogoPage() {
                 </button>
               </div>
             </article>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : null}
       </section>
 
       <button
