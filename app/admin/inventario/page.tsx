@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
-import { products as baseProducts, type Product } from "@/lib/products";
+import { type Product } from "@/lib/products";
+import { supabase } from "@/lib/supabase";
 
 const ADMIN_PRODUCTS_KEY = "nexostock_admin_products";
 const AUTH_STORAGE_KEY = "nexostock_auth";
@@ -20,7 +21,21 @@ const sidebarItems = [
 ];
 
 type ProductRow = Product & {
-  source: "base" | "local";
+  source: "supabase" | "local";
+};
+
+type SupabaseProduct = {
+  id: string;
+  name: string;
+  slug: string;
+  price: number;
+  category: Product["category"];
+  stock: number;
+  status: Product["status"] | null;
+  image_code: string | null;
+  is_new: boolean | null;
+  is_featured: boolean | null;
+  description: string;
 };
 
 type MovementType = "Entrada" | "Salida" | "Ajuste";
@@ -36,7 +51,7 @@ type InventoryMovement = {
 };
 
 type ActiveMovement = {
-  product: Product;
+  product: ProductRow;
   type: MovementType;
 };
 
@@ -119,8 +134,28 @@ const formatMovementDate = (date: string) => {
   }).format(parsedDate);
 };
 
+const mapSupabaseProduct = (product: SupabaseProduct): ProductRow => {
+  const stock = Number(product.stock);
+
+  return {
+    id: String(product.id),
+    name: product.name,
+    slug: product.slug,
+    price: Number(product.price),
+    category: product.category,
+    stock,
+    status: product.status ?? getStatusFromStock(stock),
+    imageCode: product.image_code ?? "",
+    isNew: Boolean(product.is_new),
+    isFeatured: Boolean(product.is_featured),
+    description: product.description,
+    source: "supabase",
+  };
+};
+
 export default function AdminInventoryPage() {
   const router = useRouter();
+  const [supabaseProducts, setSupabaseProducts] = useState<ProductRow[]>([]);
   const [storedProducts, setStoredProducts] = useState<Product[]>([]);
   const [savedMovements, setSavedMovements] = useState<InventoryMovement[]>([]);
   const [activeMovement, setActiveMovement] = useState<ActiveMovement | null>(
@@ -129,7 +164,10 @@ export default function AdminInventoryPage() {
   const [quantity, setQuantity] = useState("");
   const [reason, setReason] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [inventoryError, setInventoryError] = useState("");
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [isLoadingInventory, setIsLoadingInventory] = useState(true);
+  const [isSavingMovement, setIsSavingMovement] = useState(false);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -168,20 +206,52 @@ export default function AdminInventoryPage() {
     });
   }, []);
 
+  useEffect(() => {
+    let shouldIgnoreResult = false;
+
+    const loadInventory = async () => {
+      setIsLoadingInventory(true);
+      setInventoryError("");
+
+      const { data, error } = await supabase
+        .from("products")
+        .select(
+          "id, name, slug, price, category, stock, status, image_code, is_new, is_featured, description",
+        );
+
+      if (shouldIgnoreResult) {
+        return;
+      }
+
+      if (error) {
+        setSupabaseProducts([]);
+        setInventoryError("No se pudo actualizar el inventario.");
+      } else {
+        setSupabaseProducts(
+          ((data ?? []) as SupabaseProduct[]).map(mapSupabaseProduct),
+        );
+      }
+
+      setIsLoadingInventory(false);
+    };
+
+    loadInventory();
+
+    return () => {
+      shouldIgnoreResult = true;
+    };
+  }, []);
+
   const allProducts = useMemo<ProductRow[]>(
     () => [
-      ...baseProducts.map((product) => ({
-        ...product,
-        status: getStatusFromStock(product.stock),
-        source: "base" as const,
-      })),
+      ...supabaseProducts,
       ...storedProducts.map((product) => ({
         ...product,
         status: getStatusFromStock(product.stock),
         source: "local" as const,
       })),
     ],
-    [storedProducts],
+    [storedProducts, supabaseProducts],
   );
 
   const movementsToShow = useMemo(() => {
@@ -232,11 +302,12 @@ export default function AdminInventoryPage() {
     ];
   }, [allProducts]);
 
-  const openMovement = (product: Product, type: MovementType) => {
+  const openMovement = (product: ProductRow, type: MovementType) => {
     setActiveMovement({ product, type });
     setQuantity("");
     setReason("");
     setErrorMessage("");
+    setInventoryError("");
   };
 
   const closeMovement = () => {
@@ -246,7 +317,7 @@ export default function AdminInventoryPage() {
     setErrorMessage("");
   };
 
-  const saveMovement = () => {
+  const saveMovement = async () => {
     if (!activeMovement) {
       return;
     }
@@ -282,15 +353,7 @@ export default function AdminInventoryPage() {
       return;
     }
 
-    const updatedProducts = storedProducts.map((product) =>
-      product.id === activeMovement.product.id
-        ? {
-            ...product,
-            stock: updatedStock,
-            status: getStatusFromStock(updatedStock),
-          }
-        : product,
-    );
+    const updatedStatus = getStatusFromStock(updatedStock);
 
     const newMovement: InventoryMovement = {
       id: `mov-${Date.now()}`,
@@ -304,17 +367,62 @@ export default function AdminInventoryPage() {
 
     const updatedMovements = [newMovement, ...savedMovements];
 
-    window.localStorage.setItem(
-      ADMIN_PRODUCTS_KEY,
-      JSON.stringify(updatedProducts),
-    );
+    setIsSavingMovement(true);
+    setErrorMessage("");
+    setInventoryError("");
+
+    if (activeMovement.product.source === "supabase") {
+      const { error } = await supabase
+        .from("products")
+        .update({
+          stock: updatedStock,
+          status: updatedStatus,
+        })
+        .eq("id", activeMovement.product.id);
+
+      if (error) {
+        setIsSavingMovement(false);
+        setErrorMessage("No se pudo actualizar el inventario.");
+        setInventoryError("No se pudo actualizar el inventario.");
+        return;
+      }
+
+      setSupabaseProducts((currentProducts) =>
+        currentProducts.map((product) =>
+          product.id === activeMovement.product.id
+            ? {
+                ...product,
+                stock: updatedStock,
+                status: updatedStatus,
+              }
+            : product,
+        ),
+      );
+    } else {
+      const updatedProducts = storedProducts.map((product) =>
+        product.id === activeMovement.product.id
+          ? {
+              ...product,
+              stock: updatedStock,
+              status: updatedStatus,
+            }
+          : product,
+      );
+
+      window.localStorage.setItem(
+        ADMIN_PRODUCTS_KEY,
+        JSON.stringify(updatedProducts),
+      );
+      setStoredProducts(updatedProducts);
+    }
+
     window.localStorage.setItem(
       INVENTORY_MOVEMENTS_KEY,
       JSON.stringify(updatedMovements),
     );
 
-    setStoredProducts(updatedProducts);
     setSavedMovements(updatedMovements);
+    setIsSavingMovement(false);
     closeMovement();
   };
 
@@ -408,6 +516,16 @@ export default function AdminInventoryPage() {
                 <p className="mt-1 text-sm text-slate-500">
                   Vista visual de existencias y acciones pendientes.
                 </p>
+                {isLoadingInventory ? (
+                  <p className="mt-2 text-sm font-bold text-slate-500">
+                    Cargando inventario...
+                  </p>
+                ) : null}
+                {inventoryError ? (
+                  <p className="mt-2 text-sm font-bold text-red-600">
+                    {inventoryError}
+                  </p>
+                ) : null}
               </div>
             </div>
 
@@ -424,7 +542,27 @@ export default function AdminInventoryPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {allProducts.map((product) => (
+                  {isLoadingInventory ? (
+                    <tr>
+                      <td
+                        className="px-6 py-10 text-center font-bold text-slate-500"
+                        colSpan={6}
+                      >
+                        Cargando inventario...
+                      </td>
+                    </tr>
+                  ) : null}
+                  {!isLoadingInventory && allProducts.length === 0 ? (
+                    <tr>
+                      <td
+                        className="px-6 py-10 text-center font-bold text-slate-500"
+                        colSpan={6}
+                      >
+                        No hay productos en inventario.
+                      </td>
+                    </tr>
+                  ) : null}
+                  {!isLoadingInventory && allProducts.map((product) => (
                     <tr key={product.id} className="hover:bg-slate-50">
                       <td className="px-6 py-4 font-bold text-emerald-700">
                         {product.imageCode}
@@ -455,55 +593,27 @@ export default function AdminInventoryPage() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-wrap gap-2">
-                          {product.source === "base" ? (
-                            <>
-                              <button
-                                className="cursor-not-allowed rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-400"
-                                disabled
-                                type="button"
-                              >
-                                Entrada
-                              </button>
-                              <button
-                                className="cursor-not-allowed rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-400"
-                                disabled
-                                type="button"
-                              >
-                                Salida
-                              </button>
-                              <button
-                                className="cursor-not-allowed rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-400"
-                                disabled
-                                type="button"
-                              >
-                                Ajuste
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <button
-                                className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-700"
-                                onClick={() => openMovement(product, "Entrada")}
-                                type="button"
-                              >
-                                Entrada
-                              </button>
-                              <button
-                                className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-amber-50 hover:text-amber-700"
-                                onClick={() => openMovement(product, "Salida")}
-                                type="button"
-                              >
-                                Salida
-                              </button>
-                              <button
-                                className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-sky-50 hover:text-sky-700"
-                                onClick={() => openMovement(product, "Ajuste")}
-                                type="button"
-                              >
-                                Ajuste
-                              </button>
-                            </>
-                          )}
+                          <button
+                            className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-700"
+                            onClick={() => openMovement(product, "Entrada")}
+                            type="button"
+                          >
+                            Entrada
+                          </button>
+                          <button
+                            className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-amber-50 hover:text-amber-700"
+                            onClick={() => openMovement(product, "Salida")}
+                            type="button"
+                          >
+                            Salida
+                          </button>
+                          <button
+                            className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-sky-50 hover:text-sky-700"
+                            onClick={() => openMovement(product, "Ajuste")}
+                            type="button"
+                          >
+                            Ajuste
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -648,11 +758,12 @@ export default function AdminInventoryPage() {
                 Cancelar
               </button>
               <button
-                className="inline-flex h-11 items-center justify-center rounded-full bg-emerald-600 px-6 text-sm font-bold text-white shadow-lg shadow-emerald-700/20 transition hover:bg-emerald-700"
+                className="inline-flex h-11 items-center justify-center rounded-full bg-emerald-600 px-6 text-sm font-bold text-white shadow-lg shadow-emerald-700/20 transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:shadow-none"
+                disabled={isSavingMovement}
                 onClick={saveMovement}
                 type="button"
               >
-                Guardar movimiento
+                {isSavingMovement ? "Guardando..." : "Guardar movimiento"}
               </button>
             </div>
           </section>
