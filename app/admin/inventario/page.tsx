@@ -8,7 +8,6 @@ import { type Product } from "@/lib/products";
 import { supabase } from "@/lib/supabase";
 
 const ADMIN_PRODUCTS_KEY = "nexostock_admin_products";
-const AUTH_STORAGE_KEY = "nexostock_auth";
 const INVENTORY_MOVEMENTS_KEY = "nexostock_inventory_movements";
 
 const sidebarItems = [
@@ -170,17 +169,30 @@ export default function AdminInventoryPage() {
   const [isSavingMovement, setIsSavingMovement] = useState(false);
 
   useEffect(() => {
-    queueMicrotask(() => {
-      const isAuthenticated =
-        window.localStorage.getItem(AUTH_STORAGE_KEY) === "true";
+    let shouldIgnoreResult = false;
 
-      if (!isAuthenticated) {
+    const checkSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (shouldIgnoreResult) {
+        return;
+      }
+
+      if (!session) {
         router.replace("/login");
         return;
       }
 
       setIsCheckingAuth(false);
-    });
+    };
+
+    checkSession();
+
+    return () => {
+      shouldIgnoreResult = true;
+    };
   }, [router]);
 
   useEffect(() => {
@@ -426,8 +438,8 @@ export default function AdminInventoryPage() {
     closeMovement();
   };
 
-  const logout = () => {
-    window.localStorage.removeItem(AUTH_STORAGE_KEY);
+  const logout = async () => {
+    await supabase.auth.signOut();
     router.replace("/login");
   };
 

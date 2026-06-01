@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-const AUTH_STORAGE_KEY = "nexostock_auth";
+import { supabase } from "@/lib/supabase";
 
 const sidebarItems = [
   { label: "Dashboard", href: "/admin" },
@@ -105,21 +105,34 @@ export default function AdminReportsPage() {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
   useEffect(() => {
-    queueMicrotask(() => {
-      const isAuthenticated =
-        window.localStorage.getItem(AUTH_STORAGE_KEY) === "true";
+    let shouldIgnoreResult = false;
 
-      if (!isAuthenticated) {
+    const checkSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (shouldIgnoreResult) {
+        return;
+      }
+
+      if (!session) {
         router.replace("/login");
         return;
       }
 
       setIsCheckingAuth(false);
-    });
+    };
+
+    checkSession();
+
+    return () => {
+      shouldIgnoreResult = true;
+    };
   }, [router]);
 
-  const logout = () => {
-    window.localStorage.removeItem(AUTH_STORAGE_KEY);
+  const logout = async () => {
+    await supabase.auth.signOut();
     router.replace("/login");
   };
 

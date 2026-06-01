@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
-const AUTH_STORAGE_KEY = "nexostock_auth";
+import { supabase } from "@/lib/supabase";
+
 const ORDERS_STORAGE_KEY = "nexostock_orders";
 
 type OrderStatus =
@@ -247,17 +248,30 @@ export default function AdminOrdersPage() {
   const latestOrder = orders[0] ?? exampleOrders[0];
 
   useEffect(() => {
-    queueMicrotask(() => {
-      const isAuthenticated =
-        window.localStorage.getItem(AUTH_STORAGE_KEY) === "true";
+    let shouldIgnoreResult = false;
 
-      if (!isAuthenticated) {
+    const checkSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (shouldIgnoreResult) {
+        return;
+      }
+
+      if (!session) {
         router.replace("/login");
         return;
       }
 
       setIsCheckingAuth(false);
-    });
+    };
+
+    checkSession();
+
+    return () => {
+      shouldIgnoreResult = true;
+    };
   }, [router]);
 
   useEffect(() => {
@@ -356,8 +370,8 @@ export default function AdminOrdersPage() {
     closeStatusModal();
   };
 
-  const logout = () => {
-    window.localStorage.removeItem(AUTH_STORAGE_KEY);
+  const logout = async () => {
+    await supabase.auth.signOut();
     router.replace("/login");
   };
 

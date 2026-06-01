@@ -7,8 +7,6 @@ import { type FormEvent, useEffect, useState } from "react";
 import type { Product } from "@/lib/products";
 import { supabase } from "@/lib/supabase";
 
-const AUTH_STORAGE_KEY = "nexostock_auth";
-
 const sidebarItems = [
   { label: "Dashboard", href: "/admin" },
   { label: "Productos", href: "/admin/productos" },
@@ -53,17 +51,30 @@ export default function NewProductPage() {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
   useEffect(() => {
-    queueMicrotask(() => {
-      const isAuthenticated =
-        window.localStorage.getItem(AUTH_STORAGE_KEY) === "true";
+    let shouldIgnoreResult = false;
 
-      if (!isAuthenticated) {
+    const checkSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (shouldIgnoreResult) {
+        return;
+      }
+
+      if (!session) {
         router.replace("/login");
         return;
       }
 
       setIsCheckingAuth(false);
-    });
+    };
+
+    checkSession();
+
+    return () => {
+      shouldIgnoreResult = true;
+    };
   }, [router]);
 
   const updateField = <Field extends keyof ProductForm>(
@@ -127,8 +138,8 @@ export default function NewProductPage() {
     }, 700);
   };
 
-  const logout = () => {
-    window.localStorage.removeItem(AUTH_STORAGE_KEY);
+  const logout = async () => {
+    await supabase.auth.signOut();
     router.replace("/login");
   };
 

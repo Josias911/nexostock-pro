@@ -2,11 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { type FormEvent, useState } from "react";
 
-const AUTH_STORAGE_KEY = "nexostock_auth";
-const TEMP_EMAIL = "admin@nexostock.com";
-const TEMP_PASSWORD = "123456";
+import { supabase } from "@/lib/supabase";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -14,11 +12,15 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
-  const submitLogin = (event: FormEvent<HTMLFormElement>) => {
+  const submitLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (email.trim() === TEMP_EMAIL && password === TEMP_PASSWORD) {
-      window.localStorage.setItem(AUTH_STORAGE_KEY, "true");
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+
+    if (!error) {
       router.push("/admin");
       return;
     }
