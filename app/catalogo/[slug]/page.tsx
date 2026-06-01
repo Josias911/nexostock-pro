@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
-import { products as baseProducts, type Product } from "@/lib/products";
+import { type Product } from "@/lib/products";
+import { supabase } from "@/lib/supabase";
 
 const ADMIN_PRODUCTS_KEY = "nexostock_admin_products";
 const CART_STORAGE_KEY = "nexostock_cart";
@@ -13,6 +14,20 @@ const WHATSAPP_NUMBER = "50233838037";
 type CartItem = {
   product: Product;
   quantity: number;
+};
+
+type SupabaseProduct = {
+  id: string;
+  name: string;
+  slug: string;
+  price: number;
+  category: Product["category"];
+  stock: number;
+  status: Product["status"] | null;
+  image_code: string | null;
+  is_new: boolean | null;
+  is_featured: boolean | null;
+  description: string;
 };
 
 const formatPrice = (price: number) =>
@@ -33,42 +48,89 @@ const getStatusFromStock = (stock: number): Product["status"] => {
   return "Disponible";
 };
 
+const mapSupabaseProduct = (product: SupabaseProduct): Product => {
+  const stock = Number(product.stock);
+
+  return {
+    id: String(product.id),
+    name: product.name,
+    slug: product.slug,
+    price: Number(product.price),
+    category: product.category,
+    stock,
+    status: product.status ?? getStatusFromStock(stock),
+    imageCode: product.image_code ?? "",
+    isNew: Boolean(product.is_new),
+    isFeatured: Boolean(product.is_featured),
+    description: product.description,
+  };
+};
+
 export default function ProductDetailPage() {
   const params = useParams<{ slug: string }>();
-  const [storedProducts, setStoredProducts] = useState<Product[]>([]);
-  const [hasLoadedProducts, setHasLoadedProducts] = useState(false);
+  const slug = params.slug;
+  const [product, setProduct] = useState<Product | null>(null);
+  const [hasLoadedProduct, setHasLoadedProduct] = useState(false);
   const [cartMessage, setCartMessage] = useState("");
 
   useEffect(() => {
-    queueMicrotask(() => {
+    let shouldIgnoreResult = false;
+
+    const loadProduct = async () => {
+      setHasLoadedProduct(false);
+      setProduct(null);
+
+      const { data, error } = await supabase
+        .from("products")
+        .select(
+          "id, name, slug, price, category, stock, status, image_code, is_new, is_featured, description",
+        )
+        .eq("slug", slug)
+        .maybeSingle();
+
+      if (shouldIgnoreResult) {
+        return;
+      }
+
+      if (error) {
+        setHasLoadedProduct(true);
+        return;
+      }
+
+      if (data) {
+        setProduct(mapSupabaseProduct(data as SupabaseProduct));
+        setHasLoadedProduct(true);
+        return;
+      }
+
       const savedProducts = window.localStorage.getItem(ADMIN_PRODUCTS_KEY);
+      let localProduct: Product | undefined;
 
       if (savedProducts) {
         try {
-          setStoredProducts(JSON.parse(savedProducts) as Product[]);
+          const storedProducts = JSON.parse(savedProducts) as Product[];
+          localProduct = storedProducts.find((item) => item.slug === slug);
         } catch {
           window.localStorage.removeItem(ADMIN_PRODUCTS_KEY);
         }
       }
 
-      setHasLoadedProducts(true);
-    });
-  }, []);
+      if (localProduct) {
+        setProduct({
+          ...localProduct,
+          status: getStatusFromStock(localProduct.stock),
+        });
+      }
 
-  const allProducts = useMemo(
-    () => [
-      ...baseProducts.map((item) => ({
-        ...item,
-        status: getStatusFromStock(item.stock),
-      })),
-      ...storedProducts.map((item) => ({
-        ...item,
-        status: getStatusFromStock(item.stock),
-      })),
-    ],
-    [storedProducts],
-  );
-  const product = allProducts.find((item) => item.slug === params.slug);
+      setHasLoadedProduct(true);
+    };
+
+    loadProduct();
+
+    return () => {
+      shouldIgnoreResult = true;
+    };
+  }, [slug]);
 
   const addToCart = (selectedProduct: Product) => {
     const storedCart = window.localStorage.getItem(CART_STORAGE_KEY);
@@ -113,7 +175,7 @@ export default function ProductDetailPage() {
     );
   };
 
-  if (!hasLoadedProducts) {
+  if (!hasLoadedProduct) {
     return (
       <main className="min-h-screen bg-[#f7faf8] text-slate-950">
         <header className="border-b border-emerald-950/10 bg-white">
