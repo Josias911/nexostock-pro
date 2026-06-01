@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
-import { products as baseProducts, type Product } from "@/lib/products";
+import { type Product } from "@/lib/products";
+import { supabase } from "@/lib/supabase";
 
 const ADMIN_PRODUCTS_KEY = "nexostock_admin_products";
 const AUTH_STORAGE_KEY = "nexostock_auth";
@@ -37,13 +38,52 @@ const getStatusFromStock = (stock: number): Product["status"] => {
 };
 
 type ProductRow = Product & {
-  source: "base" | "local";
+  createdAt?: string | null;
+  source: "supabase" | "local";
+};
+
+type SupabaseProduct = {
+  id: string;
+  name: string;
+  slug: string;
+  price: number;
+  category: Product["category"];
+  stock: number;
+  status: Product["status"] | null;
+  image_code: string | null;
+  is_new: boolean | null;
+  is_featured: boolean | null;
+  description: string;
+  created_at: string | null;
+};
+
+const mapSupabaseProduct = (product: SupabaseProduct): ProductRow => {
+  const stock = Number(product.stock);
+
+  return {
+    id: String(product.id),
+    name: product.name,
+    slug: product.slug,
+    price: Number(product.price),
+    category: product.category,
+    stock,
+    status: product.status ?? getStatusFromStock(stock),
+    imageCode: product.image_code ?? "",
+    isNew: Boolean(product.is_new),
+    isFeatured: Boolean(product.is_featured),
+    description: product.description,
+    createdAt: product.created_at,
+    source: "supabase",
+  };
 };
 
 export default function AdminProductsPage() {
   const router = useRouter();
+  const [supabaseProducts, setSupabaseProducts] = useState<ProductRow[]>([]);
   const [storedProducts, setStoredProducts] = useState<Product[]>([]);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
+  const [productsError, setProductsError] = useState<string | null>(null);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -73,20 +113,52 @@ export default function AdminProductsPage() {
     });
   }, []);
 
+  useEffect(() => {
+    let shouldIgnoreResult = false;
+
+    const loadProducts = async () => {
+      setIsLoadingProducts(true);
+      setProductsError(null);
+
+      const { data, error } = await supabase
+        .from("products")
+        .select(
+          "id, name, slug, price, category, stock, status, image_code, is_new, is_featured, description, created_at",
+        );
+
+      if (shouldIgnoreResult) {
+        return;
+      }
+
+      if (error) {
+        setSupabaseProducts([]);
+        setProductsError("No se pudieron cargar los productos desde Supabase.");
+      } else {
+        setSupabaseProducts(
+          ((data ?? []) as SupabaseProduct[]).map(mapSupabaseProduct),
+        );
+      }
+
+      setIsLoadingProducts(false);
+    };
+
+    loadProducts();
+
+    return () => {
+      shouldIgnoreResult = true;
+    };
+  }, []);
+
   const allProducts = useMemo<ProductRow[]>(
     () => [
-      ...baseProducts.map((product) => ({
-        ...product,
-        status: getStatusFromStock(product.stock),
-        source: "base" as const,
-      })),
+      ...supabaseProducts,
       ...storedProducts.map((product) => ({
         ...product,
         status: getStatusFromStock(product.stock),
         source: "local" as const,
       })),
     ],
-    [storedProducts],
+    [storedProducts, supabaseProducts],
   );
 
   const deleteStoredProduct = (productId: string) => {
@@ -241,6 +313,16 @@ export default function AdminProductsPage() {
                 <p className="mt-1 text-sm text-slate-500">
                   Vista administrativa del catálogo actual.
                 </p>
+                {isLoadingProducts ? (
+                  <p className="mt-2 text-sm font-bold text-slate-500">
+                    Cargando productos...
+                  </p>
+                ) : null}
+                {productsError ? (
+                  <p className="mt-2 text-sm font-bold text-red-600">
+                    {productsError}
+                  </p>
+                ) : null}
               </div>
             </div>
 
@@ -258,7 +340,27 @@ export default function AdminProductsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {allProducts.map((product) => (
+                  {isLoadingProducts ? (
+                    <tr>
+                      <td
+                        className="px-6 py-10 text-center font-bold text-slate-500"
+                        colSpan={7}
+                      >
+                        Cargando productos...
+                      </td>
+                    </tr>
+                  ) : null}
+                  {!isLoadingProducts && allProducts.length === 0 ? (
+                    <tr>
+                      <td
+                        className="px-6 py-10 text-center font-bold text-slate-500"
+                        colSpan={7}
+                      >
+                        No hay productos registrados.
+                      </td>
+                    </tr>
+                  ) : null}
+                  {!isLoadingProducts && allProducts.map((product) => (
                     <tr key={product.id} className="hover:bg-slate-50">
                       <td className="px-6 py-4 font-bold text-emerald-700">
                         {product.imageCode}
@@ -287,32 +389,25 @@ export default function AdminProductsPage() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-wrap gap-2">
-                          <button className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-700">
+                          <Link
+                            href={`/catalogo/${product.slug}`}
+                            className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-700"
+                          >
                             Ver
-                          </button>
-                          {product.source === "base" ? (
+                          </Link>
+                          <Link
+                            href={`/admin/productos/editar/${product.slug}`}
+                            className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-700"
+                          >
+                            Editar
+                          </Link>
+                          {product.source === "supabase" ? (
                             <button
                               className="cursor-not-allowed rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-400"
                               disabled
                               type="button"
                             >
-                              Base
-                            </button>
-                          ) : (
-                            <Link
-                              href={`/admin/productos/editar/${product.slug}`}
-                              className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-700"
-                            >
-                              Editar
-                            </Link>
-                          )}
-                          {product.source === "base" ? (
-                            <button
-                              className="cursor-not-allowed rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-400"
-                              disabled
-                              type="button"
-                            >
-                              Base
+                              BD
                             </button>
                           ) : (
                             <button
