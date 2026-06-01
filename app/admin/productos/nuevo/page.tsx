@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 
 import type { Product } from "@/lib/products";
+import { supabase } from "@/lib/supabase";
 
-const ADMIN_PRODUCTS_KEY = "nexostock_admin_products";
 const AUTH_STORAGE_KEY = "nexostock_auth";
 
 const sidebarItems = [
@@ -48,6 +48,8 @@ export default function NewProductPage() {
   const router = useRouter();
   const [formData, setFormData] = useState<ProductForm>(initialForm);
   const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
   useEffect(() => {
@@ -73,9 +75,10 @@ export default function NewProductPage() {
       [field]: value,
     }));
     setErrorMessage("");
+    setSuccessMessage("");
   };
 
-  const saveProduct = (event: FormEvent<HTMLFormElement>) => {
+  const saveProduct = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const hasEmptyRequiredField =
@@ -93,37 +96,35 @@ export default function NewProductPage() {
       return;
     }
 
-    const storedProducts = window.localStorage.getItem(ADMIN_PRODUCTS_KEY);
-    let currentProducts: Product[] = [];
+    setIsSaving(true);
+    setErrorMessage("");
+    setSuccessMessage("");
 
-    if (storedProducts) {
-      try {
-        currentProducts = JSON.parse(storedProducts) as Product[];
-      } catch {
-        currentProducts = [];
-      }
-    }
-
-    const newProduct: Product = {
-      id: `admin-${Date.now()}`,
+    const { error } = await supabase.from("products").insert({
       name: formData.name.trim(),
       slug: formData.slug.trim(),
       price: Number(formData.price),
       category: formData.category,
-      stock: Number(formData.stock),
+      stock: Number.parseInt(formData.stock, 10),
       status: formData.status,
-      imageCode: formData.imageCode.trim(),
-      isNew: formData.isNew,
-      isFeatured: formData.isFeatured,
+      image_code: formData.imageCode.trim(),
+      is_new: formData.isNew,
+      is_featured: formData.isFeatured,
       description: formData.description.trim(),
-    };
+    });
 
-    window.localStorage.setItem(
-      ADMIN_PRODUCTS_KEY,
-      JSON.stringify([...currentProducts, newProduct]),
-    );
+    setIsSaving(false);
 
-    router.push("/admin/productos");
+    if (error) {
+      setErrorMessage("No se pudo guardar el producto.");
+      return;
+    }
+
+    setSuccessMessage("Producto guardado correctamente.");
+
+    window.setTimeout(() => {
+      router.push("/admin/productos");
+    }, 700);
   };
 
   const logout = () => {
@@ -207,6 +208,11 @@ export default function NewProductPage() {
             {errorMessage ? (
               <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
                 {errorMessage}
+              </div>
+            ) : null}
+            {successMessage ? (
+              <div className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
+                {successMessage}
               </div>
             ) : null}
 
@@ -363,10 +369,11 @@ export default function NewProductPage() {
                 Cancelar
               </Link>
               <button
-                className="inline-flex h-11 items-center justify-center rounded-full bg-emerald-600 px-6 text-sm font-bold text-white shadow-lg shadow-emerald-700/20 transition hover:bg-emerald-700"
+                className="inline-flex h-11 items-center justify-center rounded-full bg-emerald-600 px-6 text-sm font-bold text-white shadow-lg shadow-emerald-700/20 transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:shadow-none"
+                disabled={isSaving}
                 type="submit"
               >
-                Guardar producto
+                {isSaving ? "Guardando..." : "Guardar producto"}
               </button>
             </div>
           </form>
