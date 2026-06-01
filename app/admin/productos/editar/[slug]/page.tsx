@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 
 import type { Product } from "@/lib/products";
+import { supabase } from "@/lib/supabase";
 
 const ADMIN_PRODUCTS_KEY = "nexostock_admin_products";
 const AUTH_STORAGE_KEY = "nexostock_auth";
@@ -31,6 +32,22 @@ type ProductForm = {
   isFeatured: boolean;
 };
 
+type SupabaseProduct = {
+  id: string;
+  name: string;
+  slug: string;
+  price: number;
+  category: Product["category"];
+  stock: number;
+  status: Product["status"] | null;
+  image_code: string | null;
+  is_new: boolean | null;
+  is_featured: boolean | null;
+  description: string;
+};
+
+type ProductSource = "supabase" | "local";
+
 const emptyForm: ProductForm = {
   name: "",
   imageCode: "",
@@ -50,8 +67,14 @@ export default function EditProductPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [formData, setFormData] = useState<ProductForm>(emptyForm);
   const [productId, setProductId] = useState("");
+  const [productSource, setProductSource] = useState<ProductSource | null>(
+    null,
+  );
+  const [originalSlug, setOriginalSlug] = useState("");
   const [hasLoadedProduct, setHasLoadedProduct] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const slug = Array.isArray(params.slug)
     ? (params.slug[0] ?? "")
@@ -72,7 +95,52 @@ export default function EditProductPage() {
   }, [router]);
 
   useEffect(() => {
-    queueMicrotask(() => {
+    let shouldIgnoreResult = false;
+
+    const loadProduct = async () => {
+      setHasLoadedProduct(false);
+      setProducts([]);
+      setProductId("");
+      setProductSource(null);
+      setOriginalSlug("");
+      setFormData(emptyForm);
+      setErrorMessage("");
+      setSuccessMessage("");
+
+      const { data } = await supabase
+        .from("products")
+        .select(
+          "id, name, slug, price, category, stock, status, image_code, is_new, is_featured, description",
+        )
+        .eq("slug", slug)
+        .maybeSingle();
+
+      if (shouldIgnoreResult) {
+        return;
+      }
+
+      if (data) {
+        const product = data as SupabaseProduct;
+
+        setProductId(String(product.id));
+        setProductSource("supabase");
+        setOriginalSlug(product.slug);
+        setFormData({
+          name: product.name,
+          imageCode: product.image_code ?? "",
+          slug: product.slug,
+          category: product.category,
+          price: String(product.price),
+          stock: String(product.stock),
+          status: product.status ?? "Disponible",
+          description: product.description,
+          isNew: Boolean(product.is_new),
+          isFeatured: Boolean(product.is_featured),
+        });
+        setHasLoadedProduct(true);
+        return;
+      }
+
       const storedProducts = window.localStorage.getItem(ADMIN_PRODUCTS_KEY);
       let currentProducts: Product[] = [];
 
@@ -90,6 +158,8 @@ export default function EditProductPage() {
 
       if (product) {
         setProductId(product.id);
+        setProductSource("local");
+        setOriginalSlug(product.slug);
         setFormData({
           name: product.name,
           imageCode: product.imageCode,
@@ -105,7 +175,13 @@ export default function EditProductPage() {
       }
 
       setHasLoadedProduct(true);
-    });
+    };
+
+    loadProduct();
+
+    return () => {
+      shouldIgnoreResult = true;
+    };
   }, [slug]);
 
   const updateField = <Field extends keyof ProductForm>(
@@ -117,9 +193,10 @@ export default function EditProductPage() {
       [field]: value,
     }));
     setErrorMessage("");
+    setSuccessMessage("");
   };
 
-  const saveChanges = (event: FormEvent<HTMLFormElement>) => {
+  const saveChanges = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const hasEmptyRequiredField =
@@ -137,13 +214,49 @@ export default function EditProductPage() {
       return;
     }
 
+    setIsSaving(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    if (productSource === "supabase") {
+      const { error } = await supabase
+        .from("products")
+        .update({
+          name: formData.name.trim(),
+          slug: formData.slug.trim(),
+          price: Number(formData.price),
+          category: formData.category,
+          stock: Number.parseInt(formData.stock, 10),
+          status: formData.status,
+          image_code: formData.imageCode.trim(),
+          is_new: formData.isNew,
+          is_featured: formData.isFeatured,
+          description: formData.description.trim(),
+        })
+        .eq("slug", originalSlug);
+
+      setIsSaving(false);
+
+      if (error) {
+        setErrorMessage("No se pudo actualizar el producto.");
+        return;
+      }
+
+      setSuccessMessage("Producto actualizado correctamente.");
+
+      window.setTimeout(() => {
+        router.push("/admin/productos");
+      }, 700);
+      return;
+    }
+
     const updatedProduct: Product = {
       id: productId,
       name: formData.name.trim(),
       slug: formData.slug.trim(),
       price: Number(formData.price),
       category: formData.category,
-      stock: Number(formData.stock),
+      stock: Number.parseInt(formData.stock, 10),
       status: formData.status,
       imageCode: formData.imageCode.trim(),
       isNew: formData.isNew,
@@ -160,7 +273,12 @@ export default function EditProductPage() {
       JSON.stringify(updatedProducts),
     );
 
-    router.push("/admin/productos");
+    setIsSaving(false);
+    setSuccessMessage("Producto actualizado correctamente.");
+
+    window.setTimeout(() => {
+      router.push("/admin/productos");
+    }, 700);
   };
 
   const logout = () => {
@@ -276,6 +394,11 @@ export default function EditProductPage() {
         {errorMessage ? (
           <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
             {errorMessage}
+          </div>
+        ) : null}
+        {successMessage ? (
+          <div className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
+            {successMessage}
           </div>
         ) : null}
 
@@ -417,10 +540,11 @@ export default function EditProductPage() {
             Cancelar
           </Link>
           <button
-            className="inline-flex h-11 items-center justify-center rounded-full bg-emerald-600 px-6 text-sm font-bold text-white shadow-lg shadow-emerald-700/20 transition hover:bg-emerald-700"
+            className="inline-flex h-11 items-center justify-center rounded-full bg-emerald-600 px-6 text-sm font-bold text-white shadow-lg shadow-emerald-700/20 transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:shadow-none"
+            disabled={isSaving}
             type="submit"
           >
-            Guardar cambios
+            {isSaving ? "Guardando..." : "Guardar cambios"}
           </button>
         </div>
       </form>
